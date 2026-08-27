@@ -14,7 +14,7 @@
   ],
   "mainPath": ["n5", "n7", "n9", "n10", "n14", "n16"],
   "nodes": [
-    { "id": "n1", "lane": "reg", "col": 0, "type": "backend", "label": "构造工具集", "sublabel": "builtinTools" },
+    { "id": "n1", "lane": "reg", "col": 0, "type": "backend", "label": "构造工具集", "sublabel": "run.BuiltinTools" },
     { "id": "n2", "lane": "reg", "col": 1, "type": "backend", "label": "注册+编译", "sublabel": "拒空名/重名，编译 Schema" },
     { "id": "n4", "lane": "reg", "col": 3, "type": "database", "label": "存工具表", "sublabel": "tools+compiled" },
     { "id": "n5", "lane": "batch", "col": 0, "type": "messagebus", "label": "收一批调用", "sublabel": "ExecuteToolCalls" },

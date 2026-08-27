@@ -85,7 +85,7 @@
           <rect x="129.6" y="275" width="188.8" height="16" rx="3" class="c-mask"/>
           <text x="224" y="285" class="t-backend" font-size="9" text-anchor="middle">写 {id,method:subagent/run,params}</text>
         </g>
-        <text data-detail="fine" x="189" y="313" class="t-dim" font-size="7">子进程 resolveProvider + filterBuiltinTools 重组 RunConfig</text>
+        <text data-detail="fine" x="189" y="313" class="t-dim" font-size="7">子进程 provider.ResolveProvider + filterBuiltinTools 重组 RunConfig</text>
         </g>
 
         <g data-edge-from="child" data-edge-to="childloop" data-edge-label="RunSubAgentOnce (StartRun+DrainStream)" data-edge-key="3" data-edge-id="run">
@@ -126,7 +126,7 @@
           <rect x="70.39999999999999" y="555" width="199.20000000000002" height="16" rx="3" class="c-mask"/>
           <text x="170" y="565" class="t-backend" font-size="9" text-anchor="middle">defer Close：关 stdin，等 5s 后 kill</text>
         </g>
-        <text data-detail="fine" x="81" y="593" class="t-dim" font-size="7">stdin EOF → runSubAgentRPC 返回 0 干净退出</text>
+        <text data-detail="fine" x="81" y="593" class="t-dim" font-size="7">stdin EOF → RunSubAgentRPC 返回 0 干净退出</text>
         </g>
 
         <!-- Activations -->

@@ -4,7 +4,7 @@
 
 第3章拆完了两层循环，那里留下一个悬而未决的接口：循环需要"把消息、系统提示、工具喂给模型，拿回一段流式回复"，但它从不关心对面是 OpenAI、Anthropic 还是某个本地网关。循环调用的是一个 `StreamFn`，一个签名极简的函数值——真正把这个函数值兑现成"一次 HTTP 请求 + 一段 SSE 流 + 一份解码后的助手消息"的，是 `internal/provider` 这一层。
 
-这一层要同时解决两个层次的差异。往上，它要给循环一个统一的、协议无关的接口：不管背后说的是哪套线上协议，循环拿到的都是同一套 `AssistantMessageEvent` 增量流。往下，它要吃掉真实世界里五花八门的差异——OpenAI 风格的 Chat Completions 与 Anthropic 的 Messages 是两套完全不同的 SSE 事件序列；三十多个内置 Provider 各有各的默认端点、鉴权头与环境变量；Azure、Bedrock、Vertex、Cloudflare 这几个还得从多个环境变量拼出端点来。
+这一层要同时解决两个层次的差异。往上，它要给循环一个统一的、协议无关的接口：不管背后说的是哪套线上协议，循环拿到的都是同一套 `AssistantMessageEvent` 增量流。往下，它要吃掉真实世界里五花八门的差异——OpenAI 风格的 Chat Completions 与 Anthropic 的 Messages 是两套完全不同的 SSE 事件序列；38 个内置 Provider 各有各的默认端点、鉴权头与环境变量；Azure、Bedrock、Vertex、Cloudflare 这几个还得从多个环境变量拼出端点来。
 
 本章沿着"从契约到线缆"的顺序解剖这一层：先看统一的 `Provider` 接口与它那套**双失败模型**（决定了错误到底是"返回"还是"随流而下"）；再看两套协议各自的**有状态解码器**如何把线上字节流累积成一条助手消息；接着钻进**共享传输驱动**，看它如何用一套 HTTP + SSE + 重试 + 双看门狗的机制服务所有 Provider；最后回到装配层，看**注册表、精选目录与鉴权**如何把"用户想用哪个模型"翻译成"哪个驱动、说哪套协议、拿哪个密钥"。第 1 章里一笔带过的 `provider.ResolveProvider`，到这里会补齐它下游的全部细节。
 
@@ -807,7 +807,7 @@ type ProviderSpec struct {
 }
 ```
 
-`providerRegistry` 是一个稳定有序的切片，列着三十多个内置 Provider——从 `anthropic`、`openai`、`deepseek`、`groq` 到 `zai`、`minimax`、`moonshotai`、`xiaomi` 各种区域变体。挑几条对照看：
+`providerRegistry` 是一个稳定有序的切片，列着 38 个内置 Provider——从 `anthropic`、`openai`、`deepseek`、`groq` 到 `zai`、`minimax`、`moonshotai`、`xiaomi` 各种区域变体。挑几条对照看：
 
 ```go
 {

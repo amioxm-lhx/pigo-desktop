@@ -432,7 +432,7 @@ EOF
 - **三层由轻到重**：Skills/斜杠命令（声明式 Markdown，无进程）→ Plugin（独立进程，JSON-RPC）→ 包管理器（分发与版本化）。一条贯穿始终的线索是：pigo 不为扩展另造发现机制，而是让每种扩展落到一个它本来就会扫描的目录里。
 - **Skills 与斜杠命令**：`internal/runtime/skills.go` 把带 YAML 头的 Markdown 解析成 `Skill`，容错加载（`stringList` 兼容标量、`LoadSkillsDir` 跳过坏文件）；一个技能既能经 `SubAgentSpec` 变成子 Agent 工具（复用第 9 章抽象），也能经 `SlashCommand` 就地展开进对话。`slashcommand.go` 的注册表区分内置/用户来源（内置优先）与提示/动作命令（`Expand` vs `Action`），后者让 `/model` 这类控制命令能改动运行时状态。
 - **Plugin 系统**：`internal/plugin` 把插件当作独立进程，用第 9 章那套 `internal/jsonrpc` 说 `initialize`/`tools/call`/`event`/`shutdown` 四方法协议。`Load` 握手取回 `Manifest`，`pluginTool` 把插件工具适配成 `AgentTool` 并把传输错误降级成错误结果（崩溃隔离）；`Manager.Discover` 容错发现；`EventNotifier` 把循环事件以"只给可观察字段、绝不外泄密钥"的载荷发后不理地推给订阅插件。
-- **包管理器**：`internal/pkgmgr` 用 `npm pack --ignore-scripts` 无副作用地拉取，`Classify` 按 pi 元数据加结构信号判定类型集合，`distribute` 把各类型摆进对应目录（`layout.go`），锁文件（`lockfile.go`）精确记账每个落盘文件以供 list/uninstall/update。CLI 外壳 `pkgcmd.go` 被 `main()` 在 flag 解析前剥离。
+- **包管理器**：`internal/pkgmgr` 用 `npm pack --ignore-scripts` 无副作用地拉取，`Classify` 按 pi 元数据加结构信号判定类型集合，`distribute` 把各类型摆进对应目录（`layout.go`），锁文件（`lockfile.go`）精确记账每个落盘文件以供 list/uninstall/update。CLI 外壳 `internal/cli/pkgcmd` 被 `main()` 在 flag 解析前剥离。
 
 至此，pigo 从入口的 CLI 装配，到内核的循环、Provider、工具、压缩、会话、信任、子 Agent，再到这一章最外层的扩展生态，整只"牛"已被逐层解开。后记里，我们回望这场解剖，聊聊 pigo 相对 pi 的设计取舍，以及读者如何在这具标本上继续生长自己的 Agent。
 

@@ -51,6 +51,8 @@ pigo 不是 pi 的翻译，而是一次带着约束的重写。约束来自 Go�
 
 这些边界 pigo 没有一劳永逸地解决，大概也解决不了。它给的是一套把问题摆正、把旋钮留好的结构。看懂这套结构，比记住任何一个具体实现都更划算。
 
+最后补一句：正文十章拆的是 v0.3.7 时代的主干，而 pigo 此后又长出了全屏 TUI、Hooks、持久记忆与 `/dream`、OpenAI Responses 协议、可嵌入的 `agent/` SDK、远程控制台，以及 `/btw` `/goal` 两种交互模式——这些没有写进正文章节，只在书末的《延伸能力速览》里做了索引式的速览。它们同样可以用前几章的方法去拆：顺着一份装配结果，看它怎么被挂进循环。看懂主干，新肉自己就能顺着纹理摸清楚。
+
 <!--
 生图prompt：
 Generate one standalone 16:9 horizontal Chinese article illustration.

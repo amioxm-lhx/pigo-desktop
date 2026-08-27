@@ -21,12 +21,12 @@
   "messages": [
     { "id": "spawn", "from": "parent", "to": "client", "y": 180, "label": "executeProcess(prompt)", "variant": "emphasis" },
     { "id": "exec", "from": "client", "to": "child", "y": 225, "label": "os.Executable()+spawn，继承 Env", "variant": "default", "note": "启动 readLoop；pending 按 id 存响应" },
-    { "id": "call", "from": "client", "to": "child", "y": 295, "label": "写 {id,method:subagent/run,params}", "variant": "default", "note": "子进程 resolveProvider + filterBuiltinTools 重组 RunConfig" },
+    { "id": "call", "from": "client", "to": "child", "y": 295, "label": "写 {id,method:subagent/run,params}", "variant": "default", "note": "子进程 provider.ResolveProvider + filterBuiltinTools 重组 RunConfig" },
     { "id": "run", "from": "child", "to": "childloop", "y": 355, "label": "RunSubAgentOnce (StartRun+DrainStream)", "variant": "emphasis" },
     { "id": "final", "from": "childloop", "to": "child", "y": 405, "label": "最终 assistant 文本", "variant": "return" },
     { "id": "result", "from": "child", "to": "client", "y": 475, "label": "写 {id,result:{text}} 到 stdout（单条无增量）", "variant": "return" },
     { "id": "match", "from": "client", "to": "parent", "y": 520, "label": "Call 按 id 匹配 → res.Text", "variant": "return" },
-    { "id": "close", "from": "parent", "to": "child", "y": 575, "label": "defer Close：关 stdin，等 5s 后 kill", "variant": "default", "note": "stdin EOF → runSubAgentRPC 返回 0 干净退出" }
+    { "id": "close", "from": "parent", "to": "child", "y": 575, "label": "defer Close：关 stdin，等 5s 后 kill", "variant": "default", "note": "stdin EOF → RunSubAgentRPC 返回 0 干净退出" }
   ],
   "activations": [
     { "participant": "client", "from": 215, "to": 525, "type": "messagebus" },

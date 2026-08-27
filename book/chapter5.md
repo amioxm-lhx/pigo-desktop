@@ -4,7 +4,7 @@
 
 第3章拆两层循环时，我们把"执行工具调用"当成了一个黑盒：循环从流式回复里收集到一批工具调用，交给某个执行器跑一遍，再把结果作为新消息回填。这一章就来打开这个黑盒。引言里的公式 **LLM + 上下文 + 工具** 中，工具是让 Agent 从"能说"跨到"能做"的那一环——没有工具，模型只能吐字；有了工具，它才能读文件、改代码、跑命令、抓网页。
 
-pigo 把这一环收进了 `internal/agenttool` 包。它要回答四个层层递进的问题：一个工具怎么**被登记**、参数怎么**被校验**（`registry.go`）；单个调用怎么走完**准备→执行→收尾**三步（`tool_executor.go`）；一批调用怎么在**串行与并发**之间选择（`batch_executor.go`）；以及读、写、改、搜、跑、抓、记七类能力各自的**实现要点**（`read_tool.go` 等八个文件）。骨架（注册表与执行器）先立起来，肌肉（各个工具）再挂上去——真正的难点不在"让工具能跑"，而在"让一个工具崩了也不拖垮整轮对话"。
+pigo 把这一环收进了 `internal/agenttool` 包。它要回答四个层层递进的问题：一个工具怎么**被登记**、参数怎么**被校验**（`registry.go`）；单个调用怎么走完**准备→执行→收尾**三步（`tool_executor.go`）；一批调用怎么在**串行与并发**之间选择（`batch_executor.go`）；以及 read / write / edit / grep / find / ls / bash / webfetch / todo 到 websearch / memory_search / task 等共 **15 个内置工具**各自的**实现要点**（`read_tool.go`、`bash_tool.go`、`web_tool.go` 等文件），其中 bash 还延伸出 `bash_output` / `kill_bash` 后台任务控制，并新增 websearch / memory_search / task 等工具。骨架（注册表与执行器）先立起来，肌肉（各个工具）再挂上去——真正的难点不在"让工具能跑"，而在"让一个工具崩了也不拖垮整轮对话"。
 
 ## 一切从 AgentTool 接口开始
 
@@ -684,9 +684,13 @@ func (w streamWriter) Write(p []byte) (int, error) {
 
 因为 stdout 和 stderr 两个流会并发往同一个缓冲区写，所以 `streamWriter` 用一把互斥锁护住。命令跑完后，`Execute` 按优先级判定结果：超时（`DeadlineExceeded`）最优先、其次是被取消（`Canceled`）、再次是非零退出码。非零退出会返回一个 Go error 携带退出码与输出——回到 `runTool` 那里，这个 error 会被转成 `isError=true` 的结果。注意这里 `Details` 里带了 `exitCode`，让 UI 和模型都能看到命令到底是成功还是失败、失败在第几号退出码。
 
-## 网络抓取与 HTML→Markdown
+### 后台执行：run_in_background 与 bash_output / kill_bash
 
-`WebFetchTool`（`webfetch_tool.go`）抓一个 URL，把正文转成简化的 Markdown 返回。pi 本身没有这个工具，它对标的是 Claude Code 的 WebFetch。它是只读的，声明为可并发。这个工具的重头戏是安全约束：
+除了同步等待，`BashTool` 还支持 `run_in_background: true`：命令在后台启动，立即返回一个 `bash_job_id`，模型不必阻塞。之后用 `bash_output` 工具按 id 拉取该任务的累积输出（或持续跟进），用 `kill_bash` 工具按 id 终止任务。后台任务的状态由 `BashJobStore` 维护——这是一个跨调用存活的有状态组件（也是 pigo 不止 `TodoTool` 一种有状态工具的证据之一，见下文待办工具节）。
+
+## 网络抓取、搜索与 HTML→Markdown
+
+`WebFetchTool`（`webfetch_tool.go`）抓一个 URL，把正文转成简化的 Markdown 返回。pi 本身没有这个工具，它对标的是 Claude Code 的 WebFetch。它是只读的，声明为可并发。pigo 另有 `WebSearchTool`（`websearch_tool.go`）提供联网搜索能力，与 `WebFetchTool` 互补，二者均声明为可并发执行。这个工具的重头戏是安全约束：
 
 ```go
 const (
@@ -760,9 +764,9 @@ var mdConverter = sync.OnceValue(func() *converter.Converter {
 
 两个细节：一是用 `sync.OnceValue` 把转换器只构造一次（注册插件和标签处理器有开销，而转换器本身可并发使用），二是在 base 插件已经剥掉 script/style 等之外，额外把 `nav/footer/header/aside/svg/form/template` 这些页面"外壳"元素也整个删掉，只留下可读正文。转换失败时它兜底返回原始字节，保证调用方总能拿到可用文本。
 
-## 待办工具：唯一有状态的工具
+## 待办工具：有状态的任务清单
 
-前面所有工具都是无状态的（每次调用互不影响），`TodoTool`（`todo_tool.go`）是唯一的例外——它维护一份跨调用存活的任务清单。它对标 Claude Code 的 TodoWrite：模型**每次提交整份清单**（而非增量修改），每项含一个 `content` 和一个 `status`（pending / in_progress / completed）。
+前面大多数工具都是无状态的（每次调用互不影响），`TodoTool`（`todo_tool.go`）是少数有状态的例外之一——它维护一份跨调用存活的任务清单。它对标 Claude Code 的 TodoWrite：模型**每次提交整份清单**（而非增量修改），每项含一个 `content` 和一个 `status`（pending / in_progress / completed）。（其他有状态组件还有后台任务的 `BashJobStore`、/rewind 的 `FileSnapshotRecorder`、持久记忆存储等，可见 pigo 的有状态设施不止一处。）
 
 状态存在一个并发安全的 `TodoStore` 里：
 
@@ -846,7 +850,7 @@ for _, e := range errs {
 - **注册表**：`ToolRegistry`（`registry.go`）按名登记工具，注册时即编译 JSON Schema（坏 Schema 左移到启动期暴露），`Validate` 把违规摊平成定位到字段的 `FieldError`，`List` 排序保证工具声明的确定性。
 - **单个执行**：`executeToolCall`（`tool_executor.go`）走 prepare→execute→finalize 三阶段，准备阶段过"取消/未知工具/参数改写/校验/拦截"五道闸门，执行阶段用 `recover` 接住 panic 并流式吐部分结果，收尾阶段做字段级（非深合并）覆盖。
 - **批量执行**：`ExecuteToolCalls`（`batch_executor.go`）里，只要批内有一个工具声明串行、整批就串行，否则并发跑并靠"按索引回填"保序；中止时给每个未跑的调用补一条 aborted 结果；仅当每个结果都要求终止时整批才终止。
-- **各类能力**：读/写/编辑（`resolveWithin` 统一的越界守卫、分页截断、覆盖探测、精确替换 + 唯一性 + LCS diff）、grep/find/ls（`.gitignore` 感知 + 结果上限）、Bash（流式 + 超时 + 取消 + 退出码）、webfetch（HTTPS 升级 + 跨域重定向不跟随 + HTML→Markdown 剥壳）、todo（唯一有状态、整份替换、进度渲染）。
+- **各类能力**：读/写/编辑（`resolveWithin` 统一的越界守卫、分页截断、覆盖探测、精确替换 + 唯一性 + LCS diff）、grep/find/ls（`.gitignore` 感知 + 结果上限）、Bash（流式 + 超时 + 取消 + 退出码，并支持 `run_in_background` 后台执行与 `bash_output`/`kill_bash` 控制）、webfetch（HTTPS 升级 + 跨域重定向不跟随 + HTML→Markdown 剥壳）、websearch（联网搜索）、todo（有状态、整份替换、进度渲染）。此外还有 `memory_search`（记忆检索，见第 6 章）与 `task`（任务/子 Agent 委派，见第 9 章）等，共 15 个内置工具。
 
 工具让 Agent 长出了手脚，但也带来了新问题：一轮轮读文件、跑命令、抓网页，上下文会越堆越长，迟早撞上模型的 token 上限。下一章（第6章）就来看 pigo 如何在逼近上限时选切点、做摘要，把上下文压缩下来而不丢掉关键信息。
 

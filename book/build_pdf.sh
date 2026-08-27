@@ -49,6 +49,7 @@ CANDIDATES=(
     chapter8.md
     chapter9.md
     chapter10.md
+    appendix.md
     afterword.md
 )
 

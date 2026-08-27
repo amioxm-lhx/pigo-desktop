@@ -12,7 +12,7 @@
 // sub-package depends on and imports nothing from them.
 ```
 
-被所有人依赖、又不依赖任何人，这是分层里很舒服的一个位置。本章就把这块地基逐块撬开：先看消息与内容如何建模一次多模态对话，再看 `AgentEvent` 这个密封接口下的十种事件如何描述循环的每一次心跳，接着拆开承载事件的 `EventStream`，最后落到工具抽象与那一组贯穿循环各阶段的钩子契约上。读完你会发现，后面几章讲的循环、Provider、工具，其实都是在往这批契约的插槽里填实现。
+被所有人依赖、又不依赖任何人，这是分层里很舒服的一个位置。本章就把这块地基逐块撬开：先看消息与内容如何建模一次多模态对话，再看 `AgentEvent` 这个密封接口下的 14 种事件如何描述循环的每一次心跳，接着拆开承载事件的 `EventStream`，最后落到工具抽象与那一组贯穿循环各阶段的钩子契约上。读完你会发现，后面几章讲的循环、Provider、工具，其实都是在往这批契约的插槽里填实现。
 
 ![图2-1 托起所有人的地基包](images/fig2-1.png){#fig:2-1 width=100%}
 
@@ -318,7 +318,7 @@ func ContentToText(list ContentList) string {
 
 注释说得很实在：这是"每个 OpenAI 兼容网关都接受的最低公分母表示"。当 Provider 只认纯文本、或无头模式要打印最终回答时，就靠它把结构化内容降维成一段文字，思考块和工具调用块则通过各自的字段另行呈现，所以这里被跳过。同文件里的 `LastAssistantOf` 则是从消息列表尾部倒着找最后一条助手消息，循环和渲染层判断"最新回复"时会用到。
 
-## AgentEvent：密封事件接口与十种事件
+## AgentEvent：密封事件接口与事件类型（共 14 种）
 
 消息和内容描述的是"对话的静态状态"，`AgentEvent` 描述的则是"循环运行的动态过程"。它又是一个密封接口，用的还是同一个模子，只是这次判别方法叫 `EventType()`：
 
@@ -332,7 +332,7 @@ type AgentEvent interface {
 }
 ```
 
-注释里那句"covers all 10 of pi's event types"是本节的锚：pigo 要覆盖 pi 事件全集。有意思的是，`event.go` 里的判别常量其实列了**十一个**——多出来的是 `compaction`：
+注释里那句"covers all 10 of pi's event types"是本节的锚：pigo 要覆盖 pi 事件全集。有意思的是，`event.go` 里的判别常量其实列了**十四个**——除了 pi 的 10 个，pigo 还多出了 `compaction`（压缩完成）、`compaction_start`（压缩开始）、`telemetry`（遥测）与 `subagent_progress`（子 Agent 进度）四种：
 
 ```go
 const (
@@ -347,10 +347,13 @@ const (
 	EventToolExecutionUpdate = "tool_execution_update"
 	EventToolExecutionEnd    = "tool_execution_end"
 	EventCompaction          = "compaction"
+	EventCompactionStart     = "compaction_start"
+	EventTelemetry           = "telemetry"
+	EventSubAgentProgress    = "subagent_progress"
 )
 ```
 
-前十个是 pi 的事件全集，对应"agent 起止 / turn 起止 / message 起止与更新 / tool 执行起止与更新"这三组生命周期；`compaction` 是 pigo 为上下文压缩额外补上的一种（对应第6章），因此严格说是"pi 的 10 种 + pigo 的 1 种"。这些事件按嵌套层级可以这样理解：一次 run 由 `agent_start`/`agent_end` 包住，中间是若干个 turn（`turn_start`/`turn_end`），每个 turn 里有一条流式消息（`message_start` → 若干 `message_update` → `message_end`）和随后的工具执行（`tool_execution_start` → `tool_execution_update` → `tool_execution_end`）。
+前十个是 pi 的事件全集，对应"agent 起止 / turn 起止 / message 起止与更新 / tool 执行起止与更新"这三组生命周期；pigo 额外补上了四种：`compaction`（压缩完成）、`compaction_start`（压缩开始）、`telemetry`（遥测）、`subagent_progress`（子 Agent 进度），因此严格说是"pi 的 10 种 + pigo 的 4 种 = 14 种"。这些事件按嵌套层级可以这样理解：一次 run 由 `agent_start`/`agent_end` 包住，中间是若干个 turn（`turn_start`/`turn_end`），每个 turn 里有一条流式消息（`message_start` → 若干 `message_update` → `message_end`）和随后的工具执行（`tool_execution_start` → `tool_execution_update` → `tool_execution_end`）。
 
 ![图2-4 层层相套的事件套盒](images/fig2-4.png){#fig:2-4 width=100%}
 
@@ -405,7 +408,7 @@ type CompactionEvent struct {
 
 注释点出一个设计细节：压缩失败时这个事件**照样发出**，只是 `ErrorMessage` 非空、token 字段描述未变的上下文——这样消费者能看到失败，会话却不因此中断。这是"错误当数据传"思路在事件层的又一次体现，和 `ToolResultMessage.IsError` 是一脉相承的。
 
-十一种事件在文件末尾用两组紧凑的方法声明完成"密封"和"判别"，一种类型两行，整整齐齐——`isAgentEvent()` 封住集合，`EventType()` 返回判别字符串。第1章讲到的 stream-json 序列化（`writeEventJSON`/`eventEnvelope`），分派的正是这个 `EventType()`。
+十四种事件在文件末尾用两组紧凑的方法声明完成"密封"和"判别"，一种类型两行，整整齐齐——`isAgentEvent()` 封住集合，`EventType()` 返回判别字符串。第1章讲到的 stream-json 序列化（`writeEventJSON`/`eventEnvelope`），分派的正是这个 `EventType()`。
 
 ## EventStream：Go 版的异步生成器
 
@@ -668,7 +671,7 @@ go test ./internal/agentcore/ -run TestExp2_1_Decode -v
 - **一个手法，三处复用**：密封接口（未导出标记方法封住变体集合）+ 两步判别式解码（peek 判别字段 → 分派到具体 struct），在消息（`role`）、内容（`type`）、事件（`EventType`）上各跑了一遍。认得这个模子，`agentcore` 的类型就都是它的实例。
 - **消息模型**：`Message` 接口下四种角色——`UserMessage`/`AssistantMessage`/`ToolResultMessage`/`CompactionMessage`；`AgentMessage` 是 `Message` 的意图别名；`StopReason` 的五个取值是循环状态机的输入；压缩消息把 `Details` 存成 `json.RawMessage` 以维持依赖单向。
 - **内容块**：`Content` 接口下 text/thinking/toolCall/image 四种形态承载多模态；构造函数替调用方填好判别字段；`ContentToText` 把结构化内容降维成 OpenAI 兼容网关认的纯文本。
-- **事件与流**：`AgentEvent` 覆盖 pi 的 10 种事件、pigo 另补 `compaction` 一种；`EventStream[T,R]` 用 channel + 一次性 result 复刻 pi 的 async generator，结果不走事件通道、`Emit` 盯着 `ctx.Done()` 防泄漏，`LoopEventStream` 是它在循环里的具体化。
+- **事件与流**：`AgentEvent` 覆盖 pi 的 10 种事件，pigo 新增 `compaction` / `compaction_start` / `telemetry` / `subagent_progress` 四种，共 14 种；`EventStream[T,R]` 用 channel + 一次性 result 复刻 pi 的 async generator，结果不走事件通道、`Emit` 盯着 `ctx.Done()` 防泄漏，`LoopEventStream` 是它在循环里的具体化。
 - **工具与钩子**：`AgentTool` 接口让内置工具与插件工具被平等调用，`AgentToolResult.Terminate` 用指针三态表达提前终止；两组钩子（工具调用的 prepare/before/after、循环每轮的 turn-update）只在这层定义形状，接线留给上层——`ThinkingLevelMap` 的 `*string` 值是"指针区分三态"的典型。
 
 把第1章的"程序怎么搭起来"和本章的"贯穿全局的类型契约"合到一起，我们就有了理解 pigo 运转的两块基石。下一步走进真正让这些类型动起来的地方：第3章拆解两层 Agent 循环——内层如何"流式回复 → 执行工具 → 回填"，外层如何靠后续消息续跑，本章定义的事件、消息、钩子将在那里被逐一点亮。

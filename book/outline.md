@@ -5,7 +5,7 @@
 先从 **CLI 入口** 进入，深入 **核心抽象 → 两层循环 → Provider 传输 → 工具系统**，
 再向内触及 **上下文压缩 → 会话持久化 → 项目信任**，最后向外延伸到 **子 Agent 编排 → 可扩展性生态**。
 
-全书含 **引言**、一篇贯穿全书的 **主线导读**、**10 章正文** 与 **后记**。每章都锚定 pigo 仓库中真实存在的包与关键文件，读者可对照源码逐行印证。
+全书含 **引言**、一篇贯穿全书的 **主线导读**、**10 章正文**、一篇 **附录：延伸能力速览** 与 **后记**。正文与各章都锚定 pigo 仓库中真实存在的包与关键文件，读者可对照源码逐行印证。
 
 ## 内容速览
 
@@ -13,16 +13,17 @@
 | --- | --- | --- | --- |
 | 引言 | 为什么解剖 pigo | 从 pi 到 pigo：一只可拆解的命令行 Agent 标本 | — |
 | 主线导读 | 一条命令的生命周期 | 追一条命令从回车到结果，看清十个包如何一站站接力（不编号，横贯全书） | 全包综述 |
-| 第 1 章 | CLI 装配与运行架构 | 命令行入口如何解析参数、装配 Provider/工具并选择运行模式 | `cmd/pigo`、`internal/runtime`（config/headless） |
+| 第 1 章 | CLI 装配与运行架构 | 命令行入口如何解析参数、装配 Provider/工具并选择运行模式 | `cmd/pigo`、`internal/cli`（run/repl/tui/headless/pkgcmd）、`internal/runtime`（config/headless） |
 | 第 2 章 | agentcore 抽象 | 消息、内容、事件、工具、钩子等贯穿全局的核心类型契约 | `internal/agentcore` |
 | 第 3 章 | 两层 Agent 循环 | 内层「流式回复→执行工具→回填」与外层「后续消息」如何驱动一次 run | `internal/runtime`（loop/stream_response/prompt） |
 | 第 4 章 | Provider 层与传输 | 统一 Provider 接口之下的 OpenAI/Anthropic 协议、SSE 传输与鉴权 | `internal/provider` |
 | 第 5 章 | 工具系统 | 内置工具的注册、批量执行与读写/搜索/网络等能力实现 | `internal/agenttool` |
 | 第 6 章 | 上下文压缩 | 逼近 token 上限时如何选切点、做摘要并压缩上下文 | `internal/compaction`、`internal/runtime`（compaction） |
 | 第 7 章 | 会话持久化 | 会话的存取、导出与 HTML 回放 | `internal/session` |
-| 第 8 章 | 项目信任与安全 | 首次进入目录的信任决策与受信状态管理 | `internal/trust`、`cmd/pigo`（trust） |
-| 第 9 章 | 子 Agent 编排 | 进程隔离的子 Agent 与基于 JSON-RPC 的父子通信 | `internal/runtime`（subagent）、`internal/jsonrpc`、`cmd/pigo`（subagent_rpc） |
-| 第 10 章 | 可扩展性生态 | Skills / 斜杠命令 / Plugins 与包管理器如何让 Agent 可插拔生长 | `internal/plugin`、`internal/pkgmgr`、`internal/runtime`（skills/slashcommand）、`cmd/pigo`（pkgcmd） |
+| 第 8 章 | 项目信任与安全 | 首次进入目录的信任决策与受信状态管理 | `internal/trust`、`internal/cli/run` |
+| 第 9 章 | 子 Agent 编排 | 进程隔离的子 Agent 与基于 JSON-RPC 的父子通信 | `internal/runtime`（subagent）、`internal/jsonrpc`、`internal/cli/headless` |
+| 第 10 章 | 可扩展性生态 | Skills / 斜杠命令 / Plugins 与包管理器如何让 Agent 可插拔生长 | `internal/plugin`、`internal/pkgmgr`、`internal/runtime`（skills/slashcommand）、`internal/cli/pkgcmd` |
+| 附录 | 延伸能力速览 | 速览 v0.4–v0.5 新增的 TUI / Hooks / 记忆与 `/dream` / Responses 协议 / 公共 SDK / 远程控制 / `/btw` `/goal` | `internal/cli/tui`、`internal/hooks`、`internal/memory`、`internal/dream`、`internal/provider/responses.go`、`agent/`、`internal/remotecontrol`、`internal/cli/btw`、`internal/cli/goal` |
 | 后记 | 解牛之后 | 从阅读源码到重造轮子：设计取舍与延伸方向 | — |
 
 ## 各章详解
@@ -53,7 +54,7 @@
 - 关键文件：`internal/agentcore/message.go`、`content.go`、`event.go`、`event_stream.go`、
   `tool.go`、`hooks.go`、`helpers.go`。
 - Message / Content 的建模与多模态内容表达。
-- AgentEvent 密封接口与 10 种事件类型（对应 pi 的事件全集）。
+- AgentEvent 密封接口与 14 种事件类型（pi 的 10 种 + pigo 新增 compaction / compaction_start / telemetry / subagent_progress 四种）。
 - Tool 抽象与 Hooks 契约：贯穿循环各阶段的扩展点。
 
 ### 第 3 章 两层 Agent 循环
@@ -117,6 +118,17 @@
 - Skills 与斜杠命令：把领域能力挂载进 Agent。
 - Plugin 清单、管理器与事件系统。
 - 包管理器：拉取、分类、分发与锁文件，让 Skills/Prompts/Themes 可安装可复用。
+
+### 附录：延伸能力速览（不编号）
+
+- 定位：正文前 10 章只覆盖到 v0.3.7 时代的主干；v0.4–v0.5 在主干之外长出的新能力，这里做每块的速览索引，不展开实现。
+- 全屏 TUI：`internal/cli/tui`（`Run(Options)`，`Options` 镜像 `repl.Options`）；bubbletea 全屏界面。
+- Hooks 系统：`internal/hooks` + `internal/cli/run` 接线层；9 个事件点（PreToolUse / PostToolUse / UserPromptSubmit / Stop / SubagentStop / SessionStart / SessionEnd / PreCompact / Notification），fail-open，PreToolUse 短路。
+- 持久记忆与 `/dream`：`internal/memory`（根目录 `$PIGO_HOME/memory`，回退 `~/.pigo/memory`；`/memory` 命令经 `memstatus.RunMemory`）、`internal/dream`（`/dream` 去重/合并/裁剪/蒸馏，`--dry-run` 预览，锁文件防并发）。
+- OpenAI Responses 协议：`internal/provider/responses.go`；`ProtocolOpenAIResponses = "openai/resp_api"`，必须带 `--base-url`；`responsesDriver` 消费 Responses SSE 事件。
+- 公共 SDK 包：`agent/`（可嵌入 Go SDK，`agent.New` + `Session.Prompt/Stream`，工具默认自动执行，Skills/Memory 默认关）。
+- 远程控制：`internal/remotecontrol`；REPL `/remote-control` 起局域网网页控制台，`NewServer` + `NewBridge`，`/pair` `/ws` 路由 + QR 配对。
+- `/btw` 与 `/goal`：`internal/cli/btw`（`RunBtw` 临时侧线程、拷上下文、不落盘）、`internal/cli/goal`（`RunGoal` 自主接力，`goalMaxAutomaticTurns=25`、`goalMaxNoProgress=3`）；两者都在 REPL 主循环拦截，不走普通斜杠 Action。
 
 ### 后记：解牛之后
 

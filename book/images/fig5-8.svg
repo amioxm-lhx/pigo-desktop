@@ -80,15 +80,15 @@
         <path data-edge-from="n14" data-edge-to="n16" data-edge-label="写回" data-edge-key="6" data-edge-id="e14" data-composition-points="500,341;500,290;625,290;625,269" d="M 500 341 L 500 290 L 625 290 L 625 269" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Nodes -->
-        <g id="node-n1" data-node-id="n1" data-node-label="构造工具集" tabindex="0" role="button" aria-label="Focus 构造工具集, builtinTools, 注册期" aria-pressed="false" data-node-kind="backend" data-node-sublabel="builtinTools" data-node-context="注册期">
-          <title>构造工具集 · builtinTools · 注册期</title>
+        <g id="node-n1" data-node-id="n1" data-node-label="构造工具集" tabindex="0" role="button" aria-label="Focus 构造工具集, run.BuiltinTools, 注册期" aria-pressed="false" data-node-kind="backend" data-node-sublabel="run.BuiltinTools" data-node-context="注册期">
+          <title>构造工具集 · run.BuiltinTools · 注册期</title>
           <rect x="42" y="93" width="92" height="52" rx="6" class="c-mask"/>
           <rect x="42" y="93" width="92" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(48 99) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-detail-anchor="" x="88" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">构造工具集</text>
-          <text data-detail="context" x="88" y="131" class="t-muted" font-size="8" text-anchor="middle">builtinTools</text>
+          <text data-detail="context" x="88" y="131" class="t-muted" font-size="8" text-anchor="middle">run.BuiltinTools</text>
         </g>
 
         <g id="node-n2" data-node-id="n2" data-node-label="注册+编译" tabindex="0" role="button" aria-label="Focus 注册+编译, 拒空名/重名，编译 Schema, 注册期" aria-pressed="false" data-node-kind="backend" data-node-sublabel="拒空名/重名，编译 Schema" data-node-context="注册期">
