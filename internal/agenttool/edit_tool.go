@@ -27,6 +27,10 @@ type EditTool struct {
 	// Snap, when non-nil, records the file's prior content before it is edited so
 	// the /rewind command can roll the change back. It is shared with the write tool.
 	Snap *FileSnapshotRecorder
+	// Guard, when non-nil, is the live workspace boundary edits resolve against
+	// instead of the static Root/ExtraRoots (see PathGuard). Run assembly wires
+	// one in; nil keeps the original static behavior.
+	Guard *PathGuard
 }
 
 // editToolArgs is the decoded argument shape for EditTool.
@@ -67,13 +71,10 @@ func (t *EditTool) ExecutionMode() agentcore.ToolExecutionMode {
 }
 
 // resolvePath resolves p against Root (or any ExtraRoots) via the shared
-// resolveWithin boundary policy, so every file tool enforces the same
+// PathGuard boundary policy, so every file tool enforces the same
 // workspace-escape guard while edits can also reach trusted extra roots.
 func (t *EditTool) resolvePath(p string) (string, error) {
-	if len(t.ExtraRoots) == 0 {
-		return resolveWithin(t.Root, p)
-	}
-	return resolveWithinAny(append([]string{t.Root}, t.ExtraRoots...), p)
+	return guardOrRoots(t.Guard, t.Root, t.ExtraRoots, p)
 }
 
 // Execute implements AgentTool. Edit failures (no match, non-unique match,

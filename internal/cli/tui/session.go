@@ -43,7 +43,7 @@ import (
 // (curLeaf / persisted) so each turn is persisted as a branch rather than a
 // flattening rewrite.
 type runSession struct {
-	store     *session.Store
+	store     session.Store
 	header    session.SessionHeader
 	agentCtx  *agentcore.AgentContext
 	live      *cli.LiveConfig
@@ -135,7 +135,7 @@ func newRunSession(opts Options) (*runSession, []agentcore.Message, error) {
 // already-opened store it resolves resume-vs-fresh, builds the live config and
 // collaborators, and returns the session plus the resumed history (nil for a
 // fresh session).
-func newRunSessionWithStore(store *session.Store, opts Options) (*runSession, []agentcore.Message, error) {
+func newRunSessionWithStore(store session.Store, opts Options) (*runSession, []agentcore.Message, error) {
 	creds := provider.NewCredentialStore(nil)
 	creds.SetOverride(opts.ProviderName, opts.APIKey)
 

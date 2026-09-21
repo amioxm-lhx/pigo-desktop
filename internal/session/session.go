@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smallnest/pigo/internal/agentcore"
@@ -336,38 +337,72 @@ func NewID(now time.Time) string {
 	return fmt.Sprintf("%s-%06d", now.UTC().Format("20060102-150405"), now.UTC().Nanosecond()/1000%1_000_000)
 }
 
-// Store persists sessions as JSONL files under a directory (typically
-// ~/.pigo/sessions). The zero value is unusable; construct with NewStore.
-type Store struct {
+// jsonlStore persists sessions as JSONL files under a directory (typically
+// ~/.pigo/sessions) — the original backend and still the default. The zero
+// value is unusable; construct via NewStore, which returns it as a Store.
+//
+// Each instance carries an owner identity for the write-lease layer
+// (see lease.go): writes claim the session's lease first, so two Store
+// instances — in this process or another — cannot silently interleave
+// their writes on the same session.
+type jsonlStore struct {
 	dir string
+	// owner is this store instance's lease identity (minted at NewStore).
+	owner string
+	// lockMu guards lockFiles (the held cross-process flock handles).
+	lockMu sync.Mutex
+	// lockFiles maps a session id to the open fd holding its sidecar lock
+	// file; the entry exists exactly while this store holds the lease.
+	lockFiles map[string]*os.File
+	// txnMu guards txns (the per-session write-transaction mutexes).
+	txnMu sync.Mutex
+	// txns maps a session id to its write-transaction mutex — the phase-3a
+	// layer that serializes the write sections of same-owner goroutines (see
+	// lease.go). Entries stay for the store's lifetime.
+	txns map[string]*sync.Mutex
 }
 
-// NewStore returns a Store rooted at dir, creating the directory if needed.
-func NewStore(dir string) (*Store, error) {
+// NewStore returns a JSONL-backed Store rooted at dir, creating the directory
+// if needed.
+func NewStore(dir string) (Store, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("session: store dir must not be empty")
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("session: create store dir: %w", err)
 	}
-	return &Store{dir: dir}, nil
+	return &jsonlStore{
+		dir:       dir,
+		owner:     newOwnerID(),
+		lockFiles: make(map[string]*os.File),
+		txns:      make(map[string]*sync.Mutex),
+	}, nil
 }
 
 // Dir returns the store's root directory.
-func (s *Store) Dir() string { return s.dir }
+func (s *jsonlStore) Dir() string { return s.dir }
 
 // path returns the on-disk path for a session id.
-func (s *Store) path(id string) string { return filepath.Join(s.dir, FileName(id)) }
+func (s *jsonlStore) path(id string) string { return filepath.Join(s.dir, FileName(id)) }
 
 // Save writes header and messages to a fresh session file, overwriting any
 // existing file for the same id. The header's Version is forced to
 // SchemaVersion; CreatedAt/UpdatedAt are left as the caller set them. Save is
 // the whole-session write; Append adds messages to an existing file.
-func (s *Store) Save(header SessionHeader, messages agentcore.MessageList) error {
+//
+// The write runs as one transaction under the session's write-lease claim
+// plus its write-transaction mutex, so concurrent Save calls on the same id
+// serialize instead of racing their renames.
+func (s *jsonlStore) Save(header SessionHeader, messages agentcore.MessageList) error {
 	header.Version = SchemaVersion
 	if header.ID == "" {
 		return fmt.Errorf("session: header ID must not be empty")
 	}
+	if err := s.claimWrite(header.ID); err != nil {
+		return err
+	}
+	unlock := s.lockWriteTxn(header.ID)
+	defer unlock()
 	return s.atomicWrite(header.ID, func(w io.Writer) error {
 		return writeSession(w, header, messages)
 	})
@@ -379,11 +414,16 @@ func (s *Store) Save(header SessionHeader, messages agentcore.MessageList) error
 // a MessageList), SaveEntries persists an already-known tree, which is what Fork
 // needs: it copies a path of existing entries into a new session file without
 // disturbing their identifiers. The header's Version is forced to SchemaVersion.
-func (s *Store) SaveEntries(header SessionHeader, entries []Entry) error {
+func (s *jsonlStore) SaveEntries(header SessionHeader, entries []Entry) error {
 	header.Version = SchemaVersion
 	if header.ID == "" {
 		return fmt.Errorf("session: header ID must not be empty")
 	}
+	if err := s.claimWrite(header.ID); err != nil {
+		return err
+	}
+	unlock := s.lockWriteTxn(header.ID)
+	defer unlock()
 	return s.atomicWrite(header.ID, func(w io.Writer) error {
 		return writeSessionEntries(w, header, entries)
 	})
@@ -393,7 +433,7 @@ func (s *Store) SaveEntries(header SessionHeader, entries []Entry) error {
 // temp file and atomically renaming it into place, so a concurrent reader never
 // sees a half-written file. It is the shared write plumbing behind Save and
 // SaveEntries.
-func (s *Store) atomicWrite(id string, write func(w io.Writer) error) error {
+func (s *jsonlStore) atomicWrite(id string, write func(w io.Writer) error) error {
 	tmp := s.path(id) + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
@@ -464,7 +504,7 @@ func writeSessionEntries(w io.Writer, header SessionHeader, entries []Entry) err
 // line, returning the messages in file order (root→leaf for a linear session).
 // Old v1/v2 files (bare message lines) are migrated transparently. Load is the
 // linear view; LoadEntries exposes the id/parentId tree metadata.
-func (s *Store) Load(id string) (SessionHeader, agentcore.MessageList, error) {
+func (s *jsonlStore) Load(id string) (SessionHeader, agentcore.MessageList, error) {
 	header, entries, err := s.LoadEntries(id)
 	if err != nil {
 		return SessionHeader{}, nil, err
@@ -481,7 +521,7 @@ func (s *Store) Load(id string) (SessionHeader, agentcore.MessageList, error) {
 // every bare message line is wrapped in an Entry with a synthesized id and its
 // ParentID chained to the previous entry, so old sessions load and resume
 // exactly as they did before (US-005 acceptance criterion b/d).
-func (s *Store) LoadEntries(id string) (SessionHeader, []Entry, error) {
+func (s *jsonlStore) LoadEntries(id string) (SessionHeader, []Entry, error) {
 	f, err := os.Open(s.path(id))
 	if err != nil {
 		return SessionHeader{}, nil, fmt.Errorf("session: open %s: %w", id, err)
@@ -556,7 +596,7 @@ func readSession(r io.Reader) (SessionHeader, []Entry, error) {
 // descending (most recently used first). Files that fail to parse are skipped
 // rather than failing the whole listing, so one corrupt session does not hide
 // the rest.
-func (s *Store) List() ([]SessionHeader, error) {
+func (s *jsonlStore) List() ([]SessionHeader, error) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
 		return nil, fmt.Errorf("session: read store dir: %w", err)
@@ -580,7 +620,7 @@ func (s *Store) List() ([]SessionHeader, error) {
 }
 
 // loadHeader reads only the header line of a session file (cheap for listing).
-func (s *Store) loadHeader(id string) (SessionHeader, error) {
+func (s *jsonlStore) loadHeader(id string) (SessionHeader, error) {
 	f, err := os.Open(s.path(id))
 	if err != nil {
 		return SessionHeader{}, err
@@ -610,15 +650,28 @@ func (s *Store) loadHeader(id string) (SessionHeader, error) {
 // Because the header lives on the first line and JSONL is otherwise
 // append-only, updating UpdatedAt requires rewriting the file; Append does a
 // load-modify-save under the hood, which is simple and correct for the session
-// sizes pigo produces.
-func (s *Store) Append(id string, updatedAt time.Time, messages agentcore.MessageList) error {
+// sizes pigo produces. The whole load-modify-save runs inside one write
+// transaction (phase 3a): concurrent Appends serialize, so every batch lands
+// — without the transaction lock two readers of the same "old" file would
+// each write their own version and one batch would vanish. The final write
+// goes straight to atomicWrite rather than through Save, which would re-enter
+// the same transaction mutex and deadlock.
+func (s *jsonlStore) Append(id string, updatedAt time.Time, messages agentcore.MessageList) error {
+	if err := s.claimWrite(id); err != nil {
+		return err
+	}
+	unlock := s.lockWriteTxn(id)
+	defer unlock()
 	header, existing, err := s.Load(id)
 	if err != nil {
 		return err
 	}
 	header.UpdatedAt = updatedAt
+	header.Version = SchemaVersion
 	existing = append(existing, messages...)
-	return s.Save(header, existing)
+	return s.atomicWrite(id, func(w io.Writer) error {
+		return writeSession(w, header, existing)
+	})
 }
 
 // AppendBranch appends messages as a chain descending from parentLeafID,
@@ -634,10 +687,15 @@ func (s *Store) Append(id string, updatedAt time.Time, messages agentcore.Messag
 // rewritten as line 1. It returns the id of the new leaf — the last appended
 // entry — so the caller can track the active branch. If the session file does not
 // yet exist it is created (the fresh-session first-turn case).
-func (s *Store) AppendBranch(header SessionHeader, parentLeafID string, messages agentcore.MessageList) (string, error) {
+func (s *jsonlStore) AppendBranch(header SessionHeader, parentLeafID string, messages agentcore.MessageList) (string, error) {
 	if header.ID == "" {
 		return "", fmt.Errorf("session: header ID must not be empty")
 	}
+	if err := s.claimWrite(header.ID); err != nil {
+		return "", err
+	}
+	unlock := s.lockWriteTxn(header.ID)
+	defer unlock()
 	var entries []Entry
 	if _, existing, err := s.LoadEntries(header.ID); err == nil {
 		entries = existing
@@ -653,7 +711,14 @@ func (s *Store) AppendBranch(header SessionHeader, parentLeafID string, messages
 		parent = e.ID
 		leaf = e.ID
 	}
-	if err := s.SaveEntries(header, entries); err != nil {
+	// Straight to atomicWrite rather than through SaveEntries (same phase-3a
+	// rule as Append): the transaction mutex is already held and is not
+	// reentrant, and the load-modify-save above must stay inside this one
+	// transaction for concurrent branch appends to serialize.
+	header.Version = SchemaVersion
+	if err := s.atomicWrite(header.ID, func(w io.Writer) error {
+		return writeSessionEntries(w, header, entries)
+	}); err != nil {
 		return "", err
 	}
 	return leaf, nil
@@ -678,7 +743,7 @@ func (s *Store) AppendBranch(header SessionHeader, parentLeafID string, messages
 // empty leafID copies nothing but the header (an empty new session rooted at the
 // source), which is the correct behavior for forking before the very first
 // message.
-func (s *Store) Fork(sourceID, leafID string, now time.Time) (SessionHeader, []Entry, error) {
+func (s *jsonlStore) Fork(sourceID, leafID string, now time.Time) (SessionHeader, []Entry, error) {
 	srcHeader, entries, err := s.LoadEntries(sourceID)
 	if err != nil {
 		return SessionHeader{}, nil, err

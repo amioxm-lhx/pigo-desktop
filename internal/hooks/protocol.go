@@ -29,6 +29,14 @@ type HookInput struct {
 	Source       string          `json:"source,omitempty"`        // SessionStart (startup/resume)
 	Trigger      string          `json:"trigger,omitempty"`       // PreCompact (manual/auto)
 	Message      string          `json:"message,omitempty"`       // Notification
+	// Provider and Model identify the resolved backend for request-scoped events
+	// (TransformContext/BeforeRequest): which provider driver and model id the
+	// shaped request targets. MessageCount is the number of messages in the
+	// shaped context at dispatch time. All are omitempty for backward
+	// compatibility with existing payloads.
+	Provider     string `json:"provider,omitempty"`      // TransformContext/BeforeRequest
+	Model        string `json:"model,omitempty"`         // TransformContext/BeforeRequest
+	MessageCount int    `json:"message_count,omitempty"` // TransformContext/BeforeRequest
 }
 
 // HookOutput is the optional JSON a hook may print to stdout to influence the

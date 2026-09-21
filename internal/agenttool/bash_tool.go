@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -78,6 +79,11 @@ type BashTool struct {
 	// Jobs holds background jobs launched with run_in_background. When nil,
 	// run_in_background is rejected (the front-end did not wire a store).
 	Jobs *BashJobStore
+	// Guard, when non-nil, bounds the command's cd targets and redirection
+	// paths (best effort — see guardCommand). It is an observable boundary, not
+	// a sandbox: the guard names the allowed roots on rejection so the model can
+	// self-correct; commands that do not name an extractable path are unaffected.
+	Guard *PathGuard
 }
 
 // bashToolArgs is the decoded argument shape for BashTool.
@@ -129,6 +135,77 @@ func (t *BashTool) ExecutionMode() agentcore.ToolExecutionMode {
 // shellLookPath resolves a program on PATH. It is a package var so tests can
 // simulate a Windows box with or without bash installed.
 var shellLookPath = exec.LookPath
+
+// guardCommand best-effort guards the cd targets and redirection paths a
+// command names against t.Guard. The extraction is deliberately naive
+// (whitespace tokenization): anything that is not a literal path — expansions,
+// command substitution, quoted paths with inner spaces, subshells — is skipped,
+// because this is an observable boundary rather than a sandbox. POSIX device
+// files (/dev/null and friends) are admitted unconditionally: redirecting noise
+// into them is idiomatic and never an exfiltration path.
+func (t *BashTool) guardCommand(command string) error {
+	if t.Guard == nil {
+		return nil
+	}
+	for _, target := range guardableCommandPaths(command) {
+		if deviceFiles[target] {
+			continue
+		}
+		if _, err := t.Guard.Guard(target); err != nil {
+			return fmt.Errorf("bash: %v", err)
+		}
+	}
+	return nil
+}
+
+// deviceFiles are the POSIX device paths admitted without a boundary check.
+var deviceFiles = map[string]bool{
+	"/dev/null":   true,
+	"/dev/zero":   true,
+	"/dev/full":   true,
+	"/dev/tty":    true,
+	"/dev/stdin":  true,
+	"/dev/stdout": true,
+	"/dev/stderr": true,
+}
+
+// guardableCommandPaths extracts the literal paths a shell command would cd
+// into or redirect to/from: the token after `cd`, and the token after a
+// redirection operator (>, >>, <, 2>, 2>>, 1>, 1>>, &>, &>>). Tokens that need
+// shell expansion ($VAR, ~, backticks) or carry stray quotes are skipped.
+func guardableCommandPaths(command string) []string {
+	fields := strings.Fields(command)
+	var paths []string
+	for i := 0; i < len(fields); i++ {
+		switch fields[i] {
+		case "cd", ">", ">>", "<", "2>", "2>>", "1>", "1>>", "&>", "&>>":
+			if i+1 < len(fields) {
+				if target := guardableTarget(fields[i+1]); target != "" {
+					paths = append(paths, target)
+				}
+				i++ // consume the operand; the next token is a new word
+			}
+		}
+	}
+	return paths
+}
+
+// guardableTarget cleans one token into a guardable literal path. It returns ""
+// for tokens that cannot be resolved statically: shell expansions ($…, ~…),
+// stray or mixed quoting, and empty words. A fully quoted token is unquoted;
+// fd duplications like >&1 are never operands of the matched operators.
+func guardableTarget(token string) string {
+	if len(token) >= 2 && (token[0] == '"' && token[len(token)-1] == '"' || token[0] == '\'' && token[len(token)-1] == '\'') {
+		token = token[1 : len(token)-1]
+	}
+	if token == "" || token == "-" || token == "." {
+		return "" // cd -/cd . are intra-shell navigation; nothing to guard
+	}
+	if strings.ContainsAny(token, "$`\"'") || strings.HasPrefix(token, "~") {
+		return "" // expansion needed: cannot resolve statically
+	}
+	return token
+}
 
 // resolveShell picks the interpreter and the flag that makes it read the command
 // from the next argument. An explicit shell (BashTool.Shell) is always honored as
@@ -185,6 +262,13 @@ func (t *BashTool) Execute(ctx context.Context, id string, args json.RawMessage,
 	}
 	if a.Command == "" {
 		return errorResult("bash: command is required"), nil
+	}
+	// Guard the command's extractable paths before anything spawns. A rejection
+	// is a tool error result (the model sees the allowed roots and can retry);
+	// an unextractable path (expansions, quoting, subshells) is simply not
+	// guarded here — the explicit boundary is best-effort by design.
+	if err := t.guardCommand(a.Command); err != nil {
+		return errorResult(err.Error()), nil
 	}
 
 	if a.RunInBackground {

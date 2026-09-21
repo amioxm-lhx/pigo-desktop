@@ -10,7 +10,7 @@ import (
 
 // newTestStore opens a session store rooted at a temp dir so persistence/resume
 // can be exercised without touching ~/.pigo.
-func newTestStore(t *testing.T) *session.Store {
+func newTestStore(t *testing.T) session.Store {
 	t.Helper()
 	store, err := session.NewStore(t.TempDir())
 	if err != nil {
@@ -20,7 +20,7 @@ func newTestStore(t *testing.T) *session.Store {
 }
 
 // saveSession writes a linear session with the given messages and returns its id.
-func saveSession(t *testing.T, store *session.Store, msgs agentcore.MessageList) string {
+func saveSession(t *testing.T, store session.Store, msgs agentcore.MessageList) string {
 	t.Helper()
 	now := time.Now().UTC()
 	header := session.SessionHeader{

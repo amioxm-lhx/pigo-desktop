@@ -47,7 +47,7 @@ import (
 // replDeps bundles the collaborators a REPL run needs. They are assembled once
 // by Run and reused across every prompt in the session.
 type replDeps struct {
-	store    *session.Store
+	store    session.Store
 	header   session.SessionHeader
 	agentCtx *agentcore.AgentContext
 	live     *cli.LiveConfig

@@ -18,7 +18,7 @@ import (
 )
 
 // seedSession writes a small multi-turn session and returns its header.
-func seedSession(t *testing.T, s *Store) SessionHeader {
+func seedSession(t *testing.T, s Store) SessionHeader {
 	t.Helper()
 	now := time.Date(2026, 7, 17, 9, 0, 0, 0, time.UTC)
 	header := SessionHeader{

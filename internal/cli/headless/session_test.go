@@ -71,6 +71,12 @@ func TestOpenHeadlessSessionResume(t *testing.T) {
 		t.Fatalf("first persist: %v", err)
 	}
 	sessID := hs1.header.ID
+	// The first "process" is done. A real second headless process inherits the
+	// lease release for free (the flock drops when the first process exits);
+	// inside one test process the explicit release plays that boundary.
+	if err := hs1.store.ReleaseSession(sessID); err != nil {
+		t.Fatalf("release first owner's lease: %v", err)
+	}
 
 	// Second run: resume the session id.
 	prior, hs2, err := openHeadlessSession(sessID, "faux-model", "faux", "sys")

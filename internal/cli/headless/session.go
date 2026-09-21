@@ -30,7 +30,7 @@ import (
 // SessionStore returns the session store rooted at ~/.pigo/sessions (or under
 // PIGO_HOME when set), creating the directory on first use. It is shared by the
 // headless run path and the interactive REPL.
-func SessionStore() (*session.Store, error) {
+func SessionStore() (session.Store, error) {
 	dir := os.Getenv("PIGO_HOME")
 	if dir == "" {
 		home, err := os.UserHomeDir()
@@ -84,7 +84,7 @@ func MostRecentSessionID() (string, error) {
 // branch-tracking cursor (curLeaf/persisted) so the run's messages append as a
 // branch descending from the resumed leaf rather than flattening the tree.
 type headlessSession struct {
-	store   *session.Store
+	store   session.Store
 	header  session.SessionHeader
 	curLeaf string // active leaf id to descend from; "" for a fresh session
 	// persisted is the number of agentCtx.Messages already on disk before the

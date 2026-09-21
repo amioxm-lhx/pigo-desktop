@@ -6,6 +6,7 @@
 //	pigo -p "read README and summarize"           # print mode: final text
 //	pigo -p "..." --output-format stream-json      # line-delimited JSON events
 //	pigo install <pkg> | list | uninstall | update # package management
+//	pigo evals --record | --compare               # eval regression gate
 //
 // The provider is resolved from --model against the built-in OpenAI-compatible
 // gateways (OpenRouter by default, Ollama for local models), with the API key
@@ -31,6 +32,7 @@ import (
 
 	"github.com/smallnest/pigo/internal/cli"
 	"github.com/smallnest/pigo/internal/cli/config"
+	"github.com/smallnest/pigo/internal/cli/evalscmd"
 	"github.com/smallnest/pigo/internal/cli/headless"
 	"github.com/smallnest/pigo/internal/cli/pkgcmd"
 	"github.com/smallnest/pigo/internal/cli/repl"
@@ -77,8 +79,15 @@ type cliOptions struct {
 	githubWebhookSecretEnv string
 	githubWebhookAddr      string
 	githubWebhookRepo      string
-	resumeID               string
-	continueLast           bool
+	// GitLab review webhook mode (--gitlab-review): the same isolated-listener
+	// contract for a local / self-hosted GitLab, turning MR events (opened
+	// non-draft, or draft marked ready) into read-only review sessions.
+	gitlabReview          bool
+	gitlabWebhookTokenEnv string
+	gitlabWebhookAddr     string
+	gitlabWebhookProject  string
+	resumeID              string
+	continueLast          bool
 	// approve grants the launch directory session-level trust up front (mirrors pi's
 	// --approve/-a): the first-launch trust prompt is skipped and side-effect
 	// tools (bash/write/edit) run without per-call confirmation for this run.
@@ -178,6 +187,13 @@ func main() {
 		os.Exit(sessioncmd.Run(os.Args[2], os.Args[3:], os.Stdout, os.Stderr))
 	}
 
+	// The evals subcommand (pigo evals --record/--compare) dispatches early too:
+	// it is the standalone regression gate (task-set runs + baseline diff) and
+	// shares nothing with the interactive/headless flag surface.
+	if len(os.Args) > 1 && os.Args[1] == "evals" {
+		os.Exit(evalscmd.Run(context.Background(), os.Args[2:], os.Stdout, os.Stderr))
+	}
+
 	// Package-management subcommands (pigo install|list|uninstall|update ...) are
 	// positional and distinct from the flag-driven agent modes, so peel them off
 	// before pflag parsing — the agent flags don't apply to them.
@@ -205,6 +221,10 @@ func main() {
 	flag.StringVar(&opts.githubWebhookSecretEnv, "github-webhook-secret-env", "PIGO_GITHUB_WEBHOOK_SECRET", "name of the env var holding the high-entropy GitHub webhook secret (credential reference; never the secret itself)")
 	flag.StringVar(&opts.githubWebhookAddr, "github-webhook-addr", "127.0.0.1:3081", "listen address for the GitHub review webhook (put a TLS reverse proxy/tunnel in front; the endpoint is plain HTTP)")
 	flag.StringVar(&opts.githubWebhookRepo, "github-webhook-repo", "", "restrict review to this repository (owner/name); empty accepts any repo")
+	flag.BoolVar(&opts.gitlabReview, "gitlab-review", false, "run the isolated GitLab merge-request review webhook: an opened non-draft MR (or a draft marked ready) creates a read-only review session and runs it")
+	flag.StringVar(&opts.gitlabWebhookTokenEnv, "gitlab-webhook-token-env", "PIGO_GITLAB_WEBHOOK_TOKEN", "name of the env var holding the GitLab webhook token (credential reference; never the token itself)")
+	flag.StringVar(&opts.gitlabWebhookAddr, "gitlab-webhook-addr", "127.0.0.1:3082", "listen address for the GitLab review webhook (put a TLS reverse proxy/tunnel in front; the endpoint is plain HTTP)")
+	flag.StringVar(&opts.gitlabWebhookProject, "gitlab-webhook-project", "", "restrict review to this project (group/name); empty accepts any project")
 	flag.StringVarP(&opts.outputFmt, "output-format", "o", "text", "output format: text | stream-json")
 	flag.BoolVarP(&opts.noTools, "no-tools", "n", false, "disable the built-in file/shell tools")
 	flag.StringArrayVar(&opts.allowedTools, "allowed-tools", nil, "restrict the model to these tools (repeatable, comma-separated, case-insensitive); empty means no restriction and --disallowed-tools wins on conflict")
@@ -396,6 +416,12 @@ func dispatch(ctx context.Context, opts cliOptions, out, errOut io.Writer) int {
 	// listener (issue #567). It shares nothing with interactive/headless paths.
 	if opts.githubReview {
 		return runGitHubReview(ctx, opts, errOut)
+	}
+
+	// --gitlab-review is the same standalone long-running mode for a local /
+	// self-hosted GitLab.
+	if opts.gitlabReview {
+		return runGitLabReview(ctx, opts, errOut)
 	}
 
 	// --list-sessions is a standalone action: print and exit.
@@ -591,6 +617,61 @@ func runGitHubReview(ctx context.Context, opts cliOptions, errOut io.Writer) int
 	srv.Runner = srv.DefaultRunner()
 	fmt.Fprintf(errOut, "pigo: github review webhook listening on %s (repo filter: %q; TLS reverse proxy required in front)\n", opts.githubWebhookAddr, opts.githubWebhookRepo)
 	httpSrv := &http.Server{Addr: opts.githubWebhookAddr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
+	errCh := make(chan error, 1)
+	go func() { errCh <- httpSrv.ListenAndServe() }()
+	select {
+	case err := <-errCh:
+		if err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(errOut, "pigo: webhook listener: %v\n", err)
+			return 1
+		}
+	case <-ctx.Done():
+		_ = httpSrv.Shutdown(context.Background())
+	}
+	return 0
+}
+
+// runGitLabReview serves the isolated GitLab MR review webhook, the same
+// contract as runGitHubReview on GitLab's wire: a shared token in
+// X-Gitlab-Token (resolved indirectly via the env var the flag names, never
+// inline in config), deduplication by X-Gitlab-Event-UUID, and a read-only
+// tool subset for every review run.
+func runGitLabReview(ctx context.Context, opts cliOptions, errOut io.Writer) int {
+	token := strings.TrimSpace(os.Getenv(strings.TrimSpace(opts.gitlabWebhookTokenEnv)))
+	if token == "" {
+		fmt.Fprintf(errOut, "pigo: --gitlab-review requires a webhook token in $%s\n", opts.gitlabWebhookTokenEnv)
+		return 2
+	}
+	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools))
+	if err != nil {
+		fmt.Fprintf(errOut, "pigo: %v\n", err)
+		return setupExitCode(err)
+	}
+	if env.Plugins != nil {
+		defer env.Plugins.Close()
+	}
+	if env.Memory != nil {
+		defer env.Memory.Close()
+	}
+	store, err := headless.SessionStore()
+	if err != nil {
+		fmt.Fprintf(errOut, "pigo: %v\n", err)
+		return 1
+	}
+	srv := &webhook.GitLabServer{
+		Token:        token,
+		Project:      opts.gitlabWebhookProject,
+		Store:        store,
+		Workspace:    env.Cwd,
+		Model:        opts.model,
+		ProviderName: env.ProviderName,
+		SysPrompt:    env.SysPrompt,
+		Provider:     env.Provider,
+		Runner:       nil, // set below via DefaultRunner once srv is built
+	}
+	srv.Runner = srv.DefaultRunner()
+	fmt.Fprintf(errOut, "pigo: gitlab review webhook listening on %s (project filter: %q; TLS reverse proxy required in front)\n", opts.gitlabWebhookAddr, opts.gitlabWebhookProject)
+	httpSrv := &http.Server{Addr: opts.gitlabWebhookAddr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpSrv.ListenAndServe() }()
 	select {

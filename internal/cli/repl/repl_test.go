@@ -60,7 +60,7 @@ func (p *replProvider) StreamCompletion(ctx context.Context, req provider.Comple
 // store, with a registry carrying one action command and one prompt command so
 // slash dispatch can be exercised. actionRuns/promptResolved report whether each
 // command fired.
-func newTestDeps(t *testing.T, p provider.Provider) (replDeps, *session.Store) {
+func newTestDeps(t *testing.T, p provider.Provider) (replDeps, session.Store) {
 	t.Helper()
 	store, err := session.NewStore(t.TempDir())
 	if err != nil {

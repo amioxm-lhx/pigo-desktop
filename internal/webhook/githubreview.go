@@ -85,7 +85,7 @@ type Server struct {
 	// every repository's events.
 	Repo string
 	// Store persists review sessions.
-	Store *session.Store
+	Store session.Store
 	// Workspace is the directory the review runs in (and sessions attribute).
 	Workspace string
 	// Model / ProviderName / SysPrompt stamp the created session's header and

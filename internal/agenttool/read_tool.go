@@ -51,6 +51,10 @@ type ReadTool struct {
 	// to read it, so the read tool must permit those paths (they are otherwise
 	// outside the workspace and rejected).
 	ExtraRoots []string
+	// Guard, when non-nil, is the live workspace boundary reads resolve against
+	// instead of the static Root/ExtraRoots (see PathGuard). Run assembly wires
+	// one in; nil keeps the original static behavior.
+	Guard *PathGuard
 }
 
 // readToolArgs is the decoded argument shape for ReadTool.
@@ -92,13 +96,10 @@ func (t *ReadTool) ExecutionMode() agentcore.ToolExecutionMode {
 }
 
 // resolvePath resolves p against Root (or any ExtraRoots) via the shared
-// resolveWithin boundary policy, so every file tool enforces the same
+// PathGuard boundary policy, so every file tool enforces the same
 // workspace-escape guard while the read tool can also reach trusted extra roots.
 func (t *ReadTool) resolvePath(p string) (string, error) {
-	if len(t.ExtraRoots) == 0 {
-		return resolveWithin(t.Root, p)
-	}
-	return resolveWithinAny(append([]string{t.Root}, t.ExtraRoots...), p)
+	return guardOrRoots(t.Guard, t.Root, t.ExtraRoots, p)
 }
 
 // Execute implements AgentTool. It never returns a Go error for a read failure

@@ -144,7 +144,7 @@ func TestAutoCompactionDisabledWhenWindowUnknown(t *testing.T) {
 }
 
 func TestCompactionEventEnvelope(t *testing.T) {
-	env := eventEnvelope(agentcore.CompactionEvent{
+	env := EventEnvelope(agentcore.CompactionEvent{
 		Reason:          "threshold",
 		TokensBefore:    1000,
 		TokensAfter:     400,
@@ -164,7 +164,7 @@ func TestCompactionEventEnvelope(t *testing.T) {
 		t.Errorf("no error key expected on success: %+v", env)
 	}
 	// Failure envelope carries the error.
-	failEnv := eventEnvelope(agentcore.CompactionEvent{Reason: "threshold", ErrorMessage: "boom"})
+	failEnv := EventEnvelope(agentcore.CompactionEvent{Reason: "threshold", ErrorMessage: "boom"})
 	if failEnv["error"] != "boom" {
 		t.Errorf("error key expected on failure, got %+v", failEnv)
 	}

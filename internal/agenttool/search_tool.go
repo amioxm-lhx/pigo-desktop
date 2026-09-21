@@ -1,8 +1,9 @@
 // This file implements the search tools (US-019): grep (search file contents by
 // regexp with optional glob filtering), find (locate files by name glob), and ls
 // (list a directory, distinguishing files from directories). All three resolve
-// paths against a Root with the same boundary guard as the other tools and skip
-// paths ignored by the workspace .gitignore. They are read-only → parallel.
+// paths against a Root with the same boundary guard as the other tools (the
+// PathGuard policy in pathguard.go) and skip paths ignored by the workspace
+// .gitignore. They are read-only → parallel.
 package agenttool
 
 import (
@@ -22,61 +23,6 @@ import (
 // searchMaxResults caps the number of matches/entries any single search returns
 // so a broad query cannot flood the model's context.
 const searchMaxResults = 1000
-
-// resolveWithin resolves p against root and verifies it stays within it. It is
-// the single workspace-boundary policy shared by every file tool: the search
-// tools call it directly, and ReadTool/WriteTool/EditTool.resolvePath delegate
-// to it, so the path-traversal guard lives in exactly one place.
-func resolveWithin(root, p string) (string, error) {
-	if root == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("cannot determine working directory: %w", err)
-		}
-		root = wd
-	}
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("invalid root: %w", err)
-	}
-	var full string
-	if filepath.IsAbs(p) {
-		full = filepath.Clean(p)
-	} else {
-		full = filepath.Join(absRoot, p)
-	}
-	rel, err := filepath.Rel(absRoot, full)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path %q is outside the workspace root", p)
-	}
-	return full, nil
-}
-
-// resolveWithinAny resolves p against the first root that contains it, trying
-// roots in order. It exists so the file tools can additionally permit trusted
-// out-of-workspace roots (the skills directory) whose absolute SKILL.md paths
-// pigo itself advertises in the system prompt: without this, the workspace guard
-// would reject the very paths the model is instructed to read or author. Empty
-// roots are skipped; if none contain p, the standard workspace-escape error is
-// returned.
-func resolveWithinAny(roots []string, p string) (string, error) {
-	var lastErr error
-	for _, root := range roots {
-		if root == "" {
-			continue
-		}
-		full, err := resolveWithin(root, p)
-		if err == nil {
-			return full, nil
-		}
-		lastErr = err
-	}
-	if lastErr != nil {
-		return "", lastErr
-	}
-	// No usable roots supplied: fall back to the default (cwd) policy.
-	return resolveWithin("", p)
-}
 
 // gitignore is a minimal .gitignore matcher. It supports the common subset:
 // blank lines and #-comments are skipped; a leading "/" anchors to the root;
@@ -192,6 +138,10 @@ func (g *gitignore) ignored(relPath string, isDir bool) bool {
 type GrepTool struct {
 	// Root bounds the search; empty defaults to the current working directory.
 	Root string
+	// Guard, when non-nil, is the live workspace boundary the search resolves
+	// against instead of the static Root (see PathGuard). Run assembly wires one
+	// in; nil keeps the original static behavior.
+	Guard *PathGuard
 }
 
 type grepToolArgs struct {
@@ -236,13 +186,13 @@ func (t *GrepTool) Execute(ctx context.Context, id string, args json.RawMessage,
 	if err != nil {
 		return errorResult(fmt.Sprintf("grep: invalid pattern: %v", err)), nil
 	}
-	root, err := resolveWithin(t.Root, "")
+	root, err := guardOrRoots(t.Guard, t.Root, nil, "")
 	if err != nil {
 		return errorResult("grep: " + err.Error()), nil
 	}
 	start := root
 	if a.Path != "" {
-		if start, err = resolveWithin(t.Root, a.Path); err != nil {
+		if start, err = guardOrRoots(t.Guard, t.Root, nil, a.Path); err != nil {
 			return errorResult("grep: " + err.Error()), nil
 		}
 	}
@@ -320,6 +270,9 @@ func (t *GrepTool) Execute(ctx context.Context, id string, args json.RawMessage,
 type FindTool struct {
 	// Root bounds the search; empty defaults to the current working directory.
 	Root string
+	// Guard, when non-nil, is the live workspace boundary the search resolves
+	// against instead of the static Root (see PathGuard).
+	Guard *PathGuard
 }
 
 type findToolArgs struct {
@@ -356,13 +309,13 @@ func (t *FindTool) Execute(ctx context.Context, id string, args json.RawMessage,
 	if a.Glob == "" {
 		return errorResult("find: glob is required"), nil
 	}
-	root, err := resolveWithin(t.Root, "")
+	root, err := guardOrRoots(t.Guard, t.Root, nil, "")
 	if err != nil {
 		return errorResult("find: " + err.Error()), nil
 	}
 	start := root
 	if a.Path != "" {
-		if start, err = resolveWithin(t.Root, a.Path); err != nil {
+		if start, err = guardOrRoots(t.Guard, t.Root, nil, a.Path); err != nil {
 			return errorResult("find: " + err.Error()), nil
 		}
 	}
@@ -419,6 +372,9 @@ func (t *FindTool) Execute(ctx context.Context, id string, args json.RawMessage,
 type LsTool struct {
 	// Root bounds the listing; empty defaults to the current working directory.
 	Root string
+	// Guard, when non-nil, is the live workspace boundary the listing resolves
+	// against instead of the static Root (see PathGuard).
+	Guard *PathGuard
 }
 
 type lsToolArgs struct {
@@ -446,7 +402,7 @@ func (t *LsTool) Execute(ctx context.Context, id string, args json.RawMessage, o
 	if bad != nil {
 		return *bad, nil
 	}
-	full, err := resolveWithin(t.Root, a.Path)
+	full, err := guardOrRoots(t.Guard, t.Root, nil, a.Path)
 	if err != nil {
 		return errorResult("ls: " + err.Error()), nil
 	}

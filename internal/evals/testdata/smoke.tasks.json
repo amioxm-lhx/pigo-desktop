@@ -1,0 +1,185 @@
+{
+  "evalSet": "smoke",
+  "tasks": [
+    {
+      "id": "read-single",
+      "prompt": "Read the file notes.txt in the workspace and reply with the launch code it contains. Reply with just the code.",
+      "files": {
+        "notes.txt": "Session notes\nThe launch code is PI-7731.\nEnd of notes.\n"
+      },
+      "expect": {
+        "answerContains": ["PI-7731"]
+      }
+    },
+    {
+      "id": "read-config-value",
+      "prompt": "Read config.txt and tell me the value of 'port'. Reply with just the number.",
+      "files": {
+        "config.txt": "host=localhost\nport=8080\nmode=debug\n"
+      },
+      "expect": {
+        "answerContains": ["8080"]
+      }
+    },
+    {
+      "id": "read-sum-two-files",
+      "prompt": "Read a.txt and b.txt, then reply with the sum of the two numbers they contain. Reply with just the number.",
+      "files": {
+        "a.txt": "12\n",
+        "b.txt": "18\n"
+      },
+      "expect": {
+        "answerContains": ["30"]
+      }
+    },
+    {
+      "id": "write-hello",
+      "prompt": "Create a file named hello.txt containing exactly this text as its only line: hello world",
+      "expect": {
+        "exists": ["hello.txt"],
+        "contains": {"hello.txt": ["hello world"]}
+      }
+    },
+    {
+      "id": "write-json-settings",
+      "prompt": "Create settings.json containing a JSON object with key \"mode\" set to \"fast\" and key \"retries\" set to the number 3.",
+      "expect": {
+        "exists": ["settings.json"],
+        "contains": {"settings.json": ["fast"]}
+      }
+    },
+    {
+      "id": "write-nested-dir",
+      "prompt": "Create the directory path reports/2026 and put a file summary.md inside it containing the single word: ready",
+      "expect": {
+        "exists": ["reports/2026/summary.md"],
+        "contains": {"reports/2026/summary.md": ["ready"]}
+      }
+    },
+    {
+      "id": "edit-replace-word",
+      "prompt": "The file app.txt says the service is in 'beta'. Change the word beta in app.txt to stable. Keep everything else unchanged.",
+      "files": {
+        "app.txt": "Welcome to the beta service.\nWe hope you enjoy it.\n"
+      },
+      "expect": {
+        "contains": {"app.txt": ["stable"]},
+        "notContains": {"app.txt": ["beta"]}
+      }
+    },
+    {
+      "id": "edit-append-line",
+      "prompt": "Append a new line containing: second entry\nto the end of log.txt, keeping the existing content intact.",
+      "files": {
+        "log.txt": "first entry\n"
+      },
+      "expect": {
+        "contains": {"log.txt": ["first entry", "second entry"]}
+      }
+    },
+    {
+      "id": "find-go-files",
+      "prompt": "List every Go source file (files ending in .go) anywhere in the workspace. Reply with one file path per line and nothing else.",
+      "files": {
+        "src/alpha.go": "package main\n",
+        "src/beta.go": "package main\n",
+        "docs/readme.md": "# docs\n"
+      },
+      "expect": {
+        "answerContains": ["alpha.go", "beta.go"]
+      }
+    },
+    {
+      "id": "grep-find-marker",
+      "prompt": "Search the workspace for the string TODO-ALPHA-42 and reply with the name of the file that contains it. Reply with just the file name.",
+      "files": {
+        "notes.md": "# notes\nnothing here\n",
+        "plan.md": "# plan\nTODO-ALPHA-42 finish the port\n",
+        "scratch.txt": "misc\n"
+      },
+      "expect": {
+        "answerContains": ["plan.md"]
+      }
+    },
+    {
+      "id": "bash-write-output",
+      "prompt": "Use the bash tool to run a command that writes the output of: echo pigo-smoke-ok\ninto a file named output.txt (the file content must be exactly that text).",
+      "expect": {
+        "contains": {"output.txt": ["pigo-smoke-ok"]}
+      }
+    },
+    {
+      "id": "bash-count-lines",
+      "prompt": "Count the lines in data.txt using a shell command and reply with just the number.",
+      "files": {
+        "data.txt": "item one\nitem two\nitem three\nitem four\nitem five\n"
+      },
+      "expect": {
+        "answerContains": ["5"]
+      }
+    },
+    {
+      "id": "bash-fix-check-script",
+      "prompt": "check.sh is a verification script that currently fails when run. Find the bug, fix it so the script passes, then run the script to confirm it passes.",
+      "files": {
+        "check.sh": "#!/bin/sh\ntotal=$(( 2 + 2 ))\nif [ \"$total\" -ne 5 ]; then\n  echo \"check failed: total=$total\"\n  exit 1\nfi\necho done > done.txt\necho \"check passed\"\n"
+      },
+      "expect": {
+        "exists": ["done.txt"]
+      }
+    },
+    {
+      "id": "multi-read-copy-upper",
+      "prompt": "Read input.txt, then create copy.txt with the same content, and finally create upper.txt with the same content but in uppercase.",
+      "files": {
+        "input.txt": "mirror-mirror\n"
+      },
+      "expect": {
+        "exists": ["copy.txt", "upper.txt"],
+        "contains": {"copy.txt": ["mirror-mirror"], "upper.txt": ["MIRROR-MIRROR"]}
+      }
+    },
+    {
+      "id": "multi-rename-file",
+      "prompt": "Rename old-name.txt to new-name.txt without losing its content.",
+      "files": {
+        "old-name.txt": "payload-data\n"
+      },
+      "expect": {
+        "exists": ["new-name.txt"],
+        "absent": ["old-name.txt"],
+        "contains": {"new-name.txt": ["payload-data"]}
+      }
+    },
+    {
+      "id": "edit-fix-report",
+      "prompt": "report.txt contains a wrong arithmetic statement: it says 2+2=5. Fix it so it says 2+2=4. Change nothing else.",
+      "files": {
+        "report.txt": "Arithmetic report:\n2+2=5\n3+3=6\n"
+      },
+      "expect": {
+        "contains": {"report.txt": ["2+2=4"]},
+        "notContains": {"report.txt": ["=5"]}
+      }
+    },
+    {
+      "id": "multi-three-files-count",
+      "prompt": "Create three files alpha.txt, beta.txt and gamma.txt, each containing exactly its own name (alpha.txt contains the text alpha.txt, and so on). Then reply with the number of .txt files now in the workspace: just the digit.",
+      "expect": {
+        "exists": ["alpha.txt", "beta.txt", "gamma.txt"],
+        "contains": {"alpha.txt": ["alpha.txt"], "beta.txt": ["beta.txt"], "gamma.txt": ["gamma.txt"]},
+        "answerContains": ["3"]
+      }
+    },
+    {
+      "id": "bash-distinct-words",
+      "prompt": "words.txt contains one word per line, with duplicates. Using the shell, count the number of DISTINCT words in it and write that number as the only content of count.txt.",
+      "files": {
+        "words.txt": "apple\nbanana\napple\ncherry\n"
+      },
+      "expect": {
+        "contains": {"count.txt": ["3"]}
+      }
+    }
+  ]
+}

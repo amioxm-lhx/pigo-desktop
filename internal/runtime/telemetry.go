@@ -19,11 +19,11 @@ import (
 	"github.com/smallnest/pigo/internal/agentcore"
 )
 
-// telemetry is the per-run accumulator. Most fields are folded from events on
-// the single runLoop goroutine, but tool_execution_* events fire from the
+// telemetryAcc is the per-run accumulator. Most fields are folded from events
+// on the single runLoop goroutine, but tool_execution_* events fire from the
 // parallel tool-batch goroutines (ExecuteToolCalls), so all mutation goes
 // through mu.
-type telemetry struct {
+type telemetryAcc struct {
 	mu              sync.Mutex
 	turns           int
 	truncationCount int
@@ -48,8 +48,8 @@ type telemetry struct {
 }
 
 // newTelemetry constructs an empty accumulator using the wall clock.
-func newTelemetry() *telemetry {
-	return &telemetry{
+func newTelemetry() *telemetryAcc {
+	return &telemetryAcc{
 		toolStarts:  make(map[string]time.Time),
 		toolTimings: make(map[string]agentcore.ToolTiming),
 		now:         time.Now,
@@ -58,7 +58,7 @@ func newTelemetry() *telemetry {
 
 // observe folds a single emitted event into the accumulator. It is a no-op for
 // event types that carry no telemetry signal, and it never mutates the event.
-func (t *telemetry) observe(ev agentcore.AgentEvent) {
+func (t *telemetryAcc) observe(ev agentcore.AgentEvent) {
 	if t == nil {
 		return
 	}
@@ -99,7 +99,7 @@ func (t *telemetry) observe(ev agentcore.AgentEvent) {
 // recordContext captures the latest context-token usage and window so the
 // summary can report the current utilization ratio. A non-positive window is
 // treated as unknown.
-func (t *telemetry) recordContext(tokens, window int) {
+func (t *telemetryAcc) recordContext(tokens, window int) {
 	if t == nil {
 		return
 	}
@@ -114,7 +114,7 @@ func (t *telemetry) recordContext(tokens, window int) {
 // summary materializes the accumulated metrics into a TelemetryEvent. The
 // per-tool map is copied so the emitted event does not alias the accumulator's
 // live state.
-func (t *telemetry) summary() agentcore.TelemetryEvent {
+func (t *telemetryAcc) summary() agentcore.TelemetryEvent {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	timings := make(map[string]agentcore.ToolTiming, len(t.toolTimings))

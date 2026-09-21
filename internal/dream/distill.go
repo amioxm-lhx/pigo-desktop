@@ -50,7 +50,7 @@ var distillNewEntryTypes = map[string]struct{}{
 }
 
 // SessionSource is the read-only view of the session store the distiller needs:
-// list session headers and load a session's messages. *session.Store satisfies
+// list session headers and load a session's messages. session.Store satisfies
 // it; tests inject a stub so no real session files (or LLM) are required.
 type SessionSource interface {
 	List() ([]session.SessionHeader, error)

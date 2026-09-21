@@ -30,7 +30,7 @@ import (
 // sessionStore returns the session store for the interactive REPL. It is a thin
 // alias for headless.SessionStore so the REPL and headless runs share one store
 // rooted at ~/.pigo/sessions (or PIGO_HOME).
-func sessionStore() (*session.Store, error) {
+func sessionStore() (session.Store, error) {
 	return headless.SessionStore()
 }
 

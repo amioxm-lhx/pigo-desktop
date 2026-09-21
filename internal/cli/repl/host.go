@@ -23,7 +23,7 @@ import (
 
 var _ cli.Host = (*replDeps)(nil)
 
-func (d *replDeps) Store() *session.Store                      { return d.store }
+func (d *replDeps) Store() session.Store                      { return d.store }
 func (d *replDeps) Header() session.SessionHeader              { return d.header }
 func (d *replDeps) AgentCtx() *agentcore.AgentContext          { return d.agentCtx }
 func (d *replDeps) Live() *cli.LiveConfig                      { return d.live }

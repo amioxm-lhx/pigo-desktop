@@ -37,7 +37,7 @@ var ErrLineInterrupted = errors.New("line input interrupted")
 // session leaf, the persisted-message count, and the last /btw side thread.
 type Host interface {
 	// Session collaborators.
-	Store() *session.Store
+	Store() session.Store
 	Header() session.SessionHeader
 	AgentCtx() *agentcore.AgentContext
 	Live() *LiveConfig

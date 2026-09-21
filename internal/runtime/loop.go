@@ -29,6 +29,7 @@ import (
 	"github.com/smallnest/pigo/internal/agenttool"
 	"github.com/smallnest/pigo/internal/compaction"
 	"github.com/smallnest/pigo/internal/provider"
+	"github.com/smallnest/pigo/internal/telemetry"
 )
 
 // nowMillis returns the current Unix time in milliseconds, the timestamp unit
@@ -112,6 +113,16 @@ type RunConfig struct {
 	// when persistent memory is disabled (memory.enabled=false), which fully
 	// disables checkpoint writing. A checkpoint write failure is non-fatal.
 	MemoryRoot string
+
+	// TelemetrySink, when non-nil, receives the run's TelemetryEvent directly at
+	// run end (the same event the stream carries just before agent_end), so
+	// metrics can flow to a pluggable backend without the runtime knowing about
+	// any specific one. nil — the default — delivers nothing and changes no
+	// behavior; wiring telemetry.NoopSink gives the same outcome explicitly.
+	// The sink must follow the telemetry.Sink contract (non-blocking Observe,
+	// idempotent Close, safe for concurrent use); the runtime never calls Close
+	// — the sink's owner, who registered it, owns its lifecycle.
+	TelemetrySink telemetry.Sink
 }
 
 // LoopEventStream is the stream returned by the loop entry points: it carries
@@ -173,11 +184,18 @@ func runLoop(ctx context.Context, agentCtx *agentcore.AgentContext, cfg RunConfi
 	}
 
 	// finish emits the telemetry summary then agent_end (unless suppressed by a
-	// prior emit error), records the run result, and closes the stream exactly
-	// once. Telemetry is emitted first so a consumer sees the run's structured
-	// metrics immediately before the terminal event.
+	// prior emit error), delivers the summary to the registered telemetry sink
+	// (if any), records the run result, and closes the stream exactly once.
+	// Telemetry is emitted first so a consumer sees the run's structured
+	// metrics immediately before the terminal event. The sink delivery is
+	// independent of the stream consumer: even when emit errors (consumer gone),
+	// the run's metrics still reach the registered backend.
 	finish := func() {
-		_ = emit(tel.summary())
+		sum := tel.summary()
+		_ = emit(sum)
+		if cfg.TelemetrySink != nil {
+			cfg.TelemetrySink.Observe(sum)
+		}
 		msgs := newMessages()
 		_ = emit(agentcore.AgentEndEvent{Messages: msgs})
 		stream.SetResult(msgs)
@@ -297,7 +315,7 @@ func runLoop(ctx context.Context, agentCtx *agentcore.AgentContext, cfg RunConfi
 // (pi per-turn semantics). It then applies prepareNextTurn, runs auto-compaction
 // when the context has outgrown its window, and finally consults
 // shouldStopAfterTurn, returning true when the run should end.
-func afterTurn(ctx context.Context, agentCtx *agentcore.AgentContext, cfg *RunConfig, hadToolExecution bool, emit func(agentcore.AgentEvent) error, tel *telemetry) (stop bool) {
+func afterTurn(ctx context.Context, agentCtx *agentcore.AgentContext, cfg *RunConfig, hadToolExecution bool, emit func(agentcore.AgentEvent) error, tel *telemetryAcc) (stop bool) {
 	if hadToolExecution && cfg.GetSteeringMessages != nil {
 		if steer := cfg.GetSteeringMessages(ctx); len(steer) > 0 {
 			agentCtx.Messages = append(agentCtx.Messages, steer...)
@@ -329,7 +347,7 @@ func afterTurn(ctx context.Context, agentCtx *agentcore.AgentContext, cfg *RunCo
 // under threshold. A compaction failure is non-fatal: the original context is
 // preserved and a CompactionEvent carrying ErrorMessage is emitted so the failure
 // is observable without aborting the run (US-004).
-func maybeAutoCompact(ctx context.Context, agentCtx *agentcore.AgentContext, cfg *RunConfig, emit func(agentcore.AgentEvent) error, tel *telemetry) {
+func maybeAutoCompact(ctx context.Context, agentCtx *agentcore.AgentContext, cfg *RunConfig, emit func(agentcore.AgentEvent) error, tel *telemetryAcc) {
 	if !cfg.Compaction.Enabled || cfg.ContextWindow <= 0 {
 		return
 	}

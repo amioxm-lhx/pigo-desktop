@@ -120,7 +120,7 @@ func TestTelemetrySummaryFieldTypes(t *testing.T) {
 // telemetry event (camelCase, consumer-facing) byte-for-byte: the historical
 // shape is now part of the frozen contract.
 func TestStreamJSONTelemetryEnvelopeGolden(t *testing.T) {
-	env := eventEnvelope(goldenEvent)
+	env := EventEnvelope(goldenEvent)
 	got, err := json.MarshalIndent(env, "", "  ")
 	if err != nil {
 		t.Fatal(err)

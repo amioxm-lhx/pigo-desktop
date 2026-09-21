@@ -99,6 +99,18 @@ func SetupEnv(model, baseURL, protocol, providerName, apiKey string, noTools, no
 			tools = append(tools, &agenttool.MemorySearchTool{Store: store})
 		}
 	}
+	// Register the memory root as a trusted tree on the shared PathGuard (the
+	// escape hatch): the memory root is where auto-compaction checkpoints and
+	// rebuilt context land, so the file tools must be able to read (and the model
+	// occasionally write) there even though it lies outside the workspace. This
+	// widens only the guard-wired tools; the static grep/find roots are untouched.
+	if memStore != nil {
+		if root := MemoryRootFromTools(tools); root != "" {
+			if guard := agenttool.GuardFromTools(tools); guard != nil {
+				guard.AllowTree(root)
+			}
+		}
+	}
 	// Wire the generic task tool (US-002, #454) unless tools are disabled. It
 	// dispatches general-purpose sub-agents that reuse the resolved provider
 	// stream/model. Each spawn gets a fresh child RunConfig whose registry is the
@@ -248,6 +260,12 @@ func BuiltinTools(cwd string, disabled bool) []agentcore.AgentTool {
 	if disabled {
 		return nil
 	}
+	// One shared PathGuard backs read/write/edit/bash so the boundary is uniform
+	// across them and a runtime AllowTree (see SetupEnv's memory-root registration)
+	// widens every tool at once. Its root set matches the static fields exactly
+	// (workspace + the readable extra roots), so wiring it in is behavior-neutral
+	// until something actually calls AllowTree.
+	guard := agenttool.NewPathGuard(append([]string{cwd}, ReadableExtraRoots()...)...)
 	// A single recorder is shared by the write and edit tools so /rewind can roll
 	// back every mutation from a turn regardless of which tool made it.
 	snap := agenttool.NewFileSnapshotRecorder()
@@ -255,12 +273,12 @@ func BuiltinTools(cwd string, disabled bool) []agentcore.AgentTool {
 	// background command launched by bash is visible to the drain/kill tools.
 	jobs := agenttool.NewBashJobStore()
 	return []agentcore.AgentTool{
-		&agenttool.ReadTool{Root: cwd, ExtraRoots: ReadableExtraRoots()},
-		&agenttool.WriteTool{Root: cwd, ExtraRoots: ReadableExtraRoots(), Snap: snap},
-		&agenttool.EditTool{Root: cwd, ExtraRoots: ReadableExtraRoots(), Snap: snap},
+		&agenttool.ReadTool{Root: cwd, ExtraRoots: ReadableExtraRoots(), Guard: guard},
+		&agenttool.WriteTool{Root: cwd, ExtraRoots: ReadableExtraRoots(), Snap: snap, Guard: guard},
+		&agenttool.EditTool{Root: cwd, ExtraRoots: ReadableExtraRoots(), Snap: snap, Guard: guard},
 		&agenttool.GrepTool{Root: cwd},
 		&agenttool.FindTool{Root: cwd},
-		&agenttool.BashTool{Dir: cwd, Jobs: jobs},
+		&agenttool.BashTool{Dir: cwd, Jobs: jobs, Guard: guard},
 		&agenttool.BashOutputTool{Jobs: jobs},
 		&agenttool.BashKillTool{Jobs: jobs},
 		&agenttool.TodoTool{Store: agenttool.NewTodoStore()},

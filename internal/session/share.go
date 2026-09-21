@@ -115,7 +115,7 @@ func WriteMarkdown(w io.Writer, header SessionHeader, entries []Entry, opts Shar
 // the redactable JSONL, "html" for the self-contained HTML transcript). The
 // parent directory of outPath must already exist. It returns the number of
 // entries written.
-func (s *Store) ExportShare(id, outPath, format string, opts ShareOptions) (int, error) {
+func (s *jsonlStore) ExportShare(id, outPath, format string, opts ShareOptions) (int, error) {
 	header, entries, err := s.LoadEntries(id)
 	if err != nil {
 		return 0, err

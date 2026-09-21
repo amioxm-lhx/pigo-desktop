@@ -28,7 +28,7 @@ import (
 
 var _ cli.Host = (*runSession)(nil)
 
-func (s *runSession) Store() *session.Store                      { return s.store }
+func (s *runSession) Store() session.Store                      { return s.store }
 func (s *runSession) Header() session.SessionHeader              { return s.header }
 func (s *runSession) AgentCtx() *agentcore.AgentContext          { return s.agentCtx }
 func (s *runSession) Live() *cli.LiveConfig                      { return s.live }

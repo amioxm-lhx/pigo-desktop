@@ -174,3 +174,51 @@ func TestStreamResponseEarlyBuildFailure(t *testing.T) {
 		t.Errorf("early build failure should yield error message, got %+v", msg)
 	}
 }
+
+func TestStreamResponseBeforeRequestBlocks(t *testing.T) {
+	// A BeforeRequest error must abort the turn as an erroring assistant
+	// message without ever contacting the provider (the stream counts calls).
+	streamCalls := 0
+	cfg := LoopConfig{
+		Model: "fake",
+		Stream: func(ctx context.Context, model string, llm provider.LlmContext, cfg provider.StreamConfig) (*provider.AssistantMessageEventStream, error) {
+			streamCalls++
+			s := provider.NewAssistantMessageEventStream(0)
+			go s.Close()
+			return s, nil
+		},
+		BeforeRequest: func(ctx context.Context, llm provider.LlmContext) error {
+			if len(llm.Messages) != 1 {
+				t.Errorf("BeforeRequest should see the shaped messages, got %d", len(llm.Messages))
+			}
+			return context.Canceled // any error aborts
+		},
+	}
+	msg, _ := runStream(t, &agentcore.AgentContext{Messages: agentcore.MessageList{agentcore.UserMessage{RoleField: agentcore.RoleUser}}}, cfg)
+	if msg.StopReason != agentcore.StopReasonError {
+		t.Errorf("blocked request should yield error message, got %+v", msg)
+	}
+	if streamCalls != 0 {
+		t.Fatalf("provider was contacted %d time(s) on a blocked request", streamCalls)
+	}
+}
+
+func TestStreamResponseBeforeRequestPassThrough(t *testing.T) {
+	final := agentcore.AssistantMessage{RoleField: agentcore.RoleAssistant, Content: agentcore.ContentList{agentcore.NewTextContent("ok")}, StopReason: agentcore.StopReasonEndTurn}
+	called := false
+	cfg := LoopConfig{
+		Model:  "fake",
+		Stream: fakeStream([]provider.AssistantMessageEvent{provider.StreamDoneEvent{Message: final}}),
+		BeforeRequest: func(ctx context.Context, llm provider.LlmContext) error {
+			called = true
+			return nil // allow: the turn proceeds normally
+		},
+	}
+	msg, _ := runStream(t, &agentcore.AgentContext{Messages: agentcore.MessageList{agentcore.UserMessage{RoleField: agentcore.RoleUser}}}, cfg)
+	if !called {
+		t.Fatal("BeforeRequest should have been consulted")
+	}
+	if msg.StopReason != agentcore.StopReasonEndTurn {
+		t.Errorf("allowed request should complete normally, got %+v", msg)
+	}
+}

@@ -44,7 +44,7 @@ func sampleMessages() agentcore.MessageList {
 	}
 }
 
-func newStore(t *testing.T) *Store {
+func newStore(t *testing.T) Store {
 	t.Helper()
 	s, err := NewStore(t.TempDir())
 	if err != nil {

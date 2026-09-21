@@ -13,6 +13,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+
+	"github.com/smallnest/pigo/internal/runtime"
+	"github.com/smallnest/pigo/internal/serve"
 )
 
 // spaFiles holds the embedded browser SPA. The placeholder shipped here is
@@ -68,6 +71,20 @@ type Handler interface {
 	OnDecide(confirmID string, approve, always bool)
 }
 
+// SessionSource is the structured session feed the server can mirror in
+// addition to the terminal byte stream: a full snapshot on client connect
+// plus the incremental AgentEvent feed afterwards. The serve layer's
+// SessionRuntime implements it directly, which is what the assembly layer
+// installs via SetSessionSource; a nil source keeps the legacy ring-replay
+// behavior.
+type SessionSource interface {
+	// Snapshot returns the current persisted state: header, entry tree,
+	// active leaf.
+	Snapshot(ctx context.Context) (serve.SessionSnapshot, error)
+	// Subscribe returns a live event feed for subsequent runs.
+	Subscribe() (*serve.Subscription, error)
+}
+
 // serverState tracks the lifecycle for gating requests.
 type serverState int
 
@@ -96,6 +113,7 @@ type Server struct {
 	clientCtx    context.Context
 	clientCancel context.CancelFunc
 	writeMu      sync.Mutex // serializes writes to client
+	source       SessionSource
 
 	// Output coalescing + backpressure + replay (#445). outMu guards all of the
 	// fields below; outCond signals both the pump (new pending output) and any
@@ -144,6 +162,17 @@ func NewServer(cfg Config, handler Handler) *Server {
 func (s *Server) SetHandler(h Handler) {
 	s.mu.Lock()
 	s.handler = h
+	s.mu.Unlock()
+}
+
+// SetSessionSource installs the structured session source whose snapshot and
+// events a freshly connected client receives before the terminal mirror. nil
+// (the default) keeps the legacy ring-replay behavior. Like SetHandler it must
+// be called before Start: the WebSocket goroutines assume the source never
+// swaps mid-flight.
+func (s *Server) SetSessionSource(src SessionSource) {
+	s.mu.Lock()
+	s.source = src
 	s.mu.Unlock()
 }
 
@@ -323,15 +352,18 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	s.clientCancel = cancel
 	s.mu.Unlock()
 
-	// Announce connection to the client, then arm a replay so the pump resends the
-	// rolling scrollback (last replayRingBytes) as the first output frame. Live
-	// output produced after this point is appended behind the snapshot by the
-	// pump, so ordering is preserved and nothing is duplicated.
+	// Announce connection to the client, then bring it up to date. With a
+	// structured session source installed the client gets a full snapshot frame
+	// plus the incremental event feed; without one (or when the source refuses)
+	// the pump replays the rolling scrollback ring as before — the byte mirror
+	// remains the compatibility path.
 	s.writeFrame(conn, Frame{Type: FrameStatus, State: StatusConnected})
-	s.outMu.Lock()
-	s.needReplay = true
-	s.outCond.Signal()
-	s.outMu.Unlock()
+	if !s.initStructuredFeed(ctx, conn) {
+		s.outMu.Lock()
+		s.needReplay = true
+		s.outCond.Signal()
+		s.outMu.Unlock()
+	}
 
 	// Notify the terminal operator that a client connected (§7.3).
 	if s.cfg.OnClientConnect != nil {
@@ -372,6 +404,54 @@ func (s *Server) dispatch(f Frame) {
 		s.handler.OnInput(f.Text)
 	case FrameDecide:
 		s.handler.OnDecide(f.ConfirmID, f.Approve, f.Always)
+	}
+}
+
+// initStructuredFeed brings a freshly connected client onto the structured
+// channel: subscribe first, snapshot second, bridge third. Subscribing before
+// snapshotting means events cover the snapshot gap too — the two may overlap
+// for a run that finishes in between, which a consumer resolves by treating
+// events as newer than snapshot state, never by losing the window. Writing the
+// snapshot frame before starting the bridge goroutine guarantees frame order
+// on the wire: snapshot first, events strictly after. It reports whether the
+// structured channel was established; false falls back to ring replay.
+func (s *Server) initStructuredFeed(ctx context.Context, conn *websocket.Conn) bool {
+	s.mu.Lock()
+	src := s.source
+	s.mu.Unlock()
+	if src == nil {
+		return false
+	}
+	sub, err := src.Subscribe()
+	if err != nil {
+		return false
+	}
+	snap, err := src.Snapshot(ctx)
+	if err != nil {
+		sub.Close()
+		return false
+	}
+	s.writeFrame(conn, Frame{Type: FrameSnapshot, Snapshot: &snap})
+	go s.bridgeEvents(ctx, sub)
+	return true
+}
+
+// bridgeEvents forwards one subscription's AgentEvents to the connected
+// client as FrameEvent frames in the runtime's wire encoding, exiting when the
+// connection's context ends or the subscription closes. The deferred Close
+// detaches the subscription so a dead observer stops receiving fan-out.
+func (s *Server) bridgeEvents(ctx context.Context, sub *serve.Subscription) {
+	defer sub.Close()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, ok := <-sub.Events():
+			if !ok {
+				return
+			}
+			s.Broadcast(Frame{Type: FrameEvent, Event: runtime.EventEnvelope(ev)})
+		}
 	}
 }
 

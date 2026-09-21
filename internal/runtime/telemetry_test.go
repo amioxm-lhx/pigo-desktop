@@ -191,7 +191,7 @@ func TestLoopTelemetryCountsTruncation(t *testing.T) {
 // telemetry field, including a name-keyed per-tool timings object, so a script
 // can read the metrics directly (headless surface, acceptance criterion 3).
 func TestTelemetryEventEnvelope(t *testing.T) {
-	env := eventEnvelope(agentcore.TelemetryEvent{
+	env := EventEnvelope(agentcore.TelemetryEvent{
 		Turns:              3,
 		TruncationCount:    1,
 		CompactionCount:    2,

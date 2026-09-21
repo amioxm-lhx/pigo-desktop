@@ -88,6 +88,7 @@ func InstallSeams(cfg *runtime.RunConfig, d *hooks.Dispatcher, deps HookDeps) {
 	tec.BeforeToolCall = chainBeforeToolCall(tec.BeforeToolCall, preToolCallHook(d, deps))
 	tec.AfterToolCall = chainAfterToolCall(tec.AfterToolCall, postToolCallHook(d, deps))
 	installStopHook(cfg, d, deps, "Stop")
+	installRequestHooks(cfg, d, deps)
 }
 
 // preToolCallHook adapts the dispatcher's PreToolUse event to the BeforeToolCall

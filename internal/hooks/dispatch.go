@@ -17,6 +17,19 @@ import (
 // the hooks package stays a leaf; the string must match what callers dispatch.
 const EventPreToolUse = "PreToolUse"
 
+// EventTransformContext fires when the request context is being shaped, before
+// reminders are appended and before the request is sent: a hook may inject
+// additional context (ephemeral — it never enters the persisted history) or
+// block. Request-scoped: these are not tool events, so tool matchers are
+// ignored (every hook under the event fires).
+const EventTransformContext = "TransformContext"
+
+// EventBeforeRequest fires after the LLM context is fully assembled (system
+// prompt, messages, tools) and right before the provider stream is opened. A
+// hook may block the request (the turn aborts with the hook's reason). Like
+// EventTransformContext it is request-scoped: tool matchers are ignored.
+const EventBeforeRequest = "BeforeRequest"
+
 // Dispatcher runs the hooks configured for an event and merges their results.
 // A nil *Dispatcher is a valid no-op (Dispatch returns an empty decision), so
 // callers can hold a possibly-nil dispatcher without guarding every call.

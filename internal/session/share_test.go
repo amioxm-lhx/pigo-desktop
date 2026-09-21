@@ -63,7 +63,7 @@ func TestRedactText(t *testing.T) {
 
 // shareFixture builds a store with one deterministic session carrying secret
 // material in every message class, for the golden and redaction tests.
-func shareFixture(t *testing.T) (*Store, SessionHeader, []Entry) {
+func shareFixture(t *testing.T) (Store, SessionHeader, []Entry) {
 	t.Helper()
 	store, err := NewStore(t.TempDir())
 	if err != nil {

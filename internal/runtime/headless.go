@@ -174,7 +174,7 @@ func writeProgressLine(w io.Writer, ev agentcore.SubAgentProgressEvent) {
 // by a newline, onto w. The envelope always carries a "type" discriminant so a
 // consumer can dispatch without positional knowledge.
 func writeEventJSON(w io.Writer, ev agentcore.AgentEvent) error {
-	env := eventEnvelope(ev)
+	env := EventEnvelope(ev)
 	b, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("headless: marshal event: %w", err)
@@ -184,11 +184,15 @@ func writeEventJSON(w io.Writer, ev agentcore.AgentEvent) error {
 	return err
 }
 
-// eventEnvelope maps an AgentEvent onto a JSON-serializable object with a
-// "type" discriminant plus the event's observable payload. Only fields that are
-// safe and useful over the wire are included (assistant text, tool ids/names,
-// stop reasons) — never secrets.
-func eventEnvelope(ev agentcore.AgentEvent) map[string]any {
+// EventEnvelope maps an AgentEvent onto a JSON-serializable object with a
+// "type" discriminant plus the event's observable payload. Only fields that
+// are safe and useful over the wire are included (assistant text, tool
+// ids/names, stop reasons) — never secrets.
+//
+// It is the wire encoding shared by every JSON consumer of the event stream:
+// headless stream-json output here, and remotecontrol's FrameEvent frames.
+// One encoding in one place keeps those frontends byte-compatible.
+func EventEnvelope(ev agentcore.AgentEvent) map[string]any {
 	env := map[string]any{"type": ev.EventType()}
 	switch e := ev.(type) {
 	case agentcore.AgentStartEvent:

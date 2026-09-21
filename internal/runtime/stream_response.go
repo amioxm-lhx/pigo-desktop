@@ -30,6 +30,12 @@ type LoopConfig struct {
 	// (context trimming/injection). Contract: must not error; on failure return
 	// a safe fallback. Runs first.
 	TransformContext func(ctx context.Context, msgs agentcore.MessageList) agentcore.MessageList
+	// BeforeRequest optionally observes the fully assembled request — after
+	// TransformContext/ConvertToLlm have shaped the messages and the LLM context
+	// (system prompt, messages, tools) is built — right before the provider
+	// stream is opened. A returned error aborts the turn as an erroring assistant
+	// message (never reaches the provider). Nil = no interception.
+	BeforeRequest func(ctx context.Context, llm provider.LlmContext) error
 	// ConvertToLlm optionally filters UI-only messages. Defaults to identity.
 	// Contract: must not error.
 	ConvertToLlm func(msgs agentcore.MessageList) agentcore.MessageList
@@ -85,6 +91,14 @@ func streamAssistantResponse(ctx context.Context, agentCtx *agentcore.AgentConte
 	if cfg.GetAPIKey != nil {
 		if dyn := cfg.GetAPIKey(ctx, cfg.Provider); dyn != "" {
 			key = dyn
+		}
+	}
+	// 4.5 beforeRequest (optional): the request is fully assembled; give the
+	// interceptor a final look before anything is sent. An error aborts the turn
+	// as a terminal erroring message (the provider is never contacted).
+	if cfg.BeforeRequest != nil {
+		if err := cfg.BeforeRequest(ctx, llm); err != nil {
+			return newErrorAssistantMessage(cfg, err), nil
 		}
 	}
 	// 5. build the provider stream.
