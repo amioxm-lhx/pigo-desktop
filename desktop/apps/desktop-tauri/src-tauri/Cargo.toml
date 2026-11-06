@@ -1,0 +1,52 @@
+[package]
+name = "pigo-desktop"
+version = "0.14.9"
+description = "pigo-desktop Tauri shell (replaces the Electron main process)"
+edition.workspace = true
+license.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.7.1", features = [] }
+
+[dependencies]
+# `unstable` enables child webviews: the browser guest is stacked in the main
+# window and positioned by the chrome (browser.rs).
+tauri = { version = "2.12.1", features = ["devtools", "tray-icon", "image-png", "unstable"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+base64 = "0.22"
+dirs = "6"
+log = "0.4"
+env_logger = "0.11"
+sys-locale = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+ureq = { version = "2", default-features = false, features = ["tls", "socks-proxy"] }
+url = "2"
+percent-encoding = "2"
+rand = "0.10"
+sha2 = "0.11"
+rusqlite = { version = "0.40", features = ["bundled"] }
+regex = "1"
+
+[features]
+# `cargo build --release --features custom-protocol` produces the production
+# build that loads the bundled frontend instead of the dev server.
+custom-protocol = ["tauri/custom-protocol"]
+
+# WKWebView exposes `takeSnapshot:withConfiguration:completionHandler:`, which
+# is how the browser guest answers `browser.screenshot`; the AppKit bridge is
+# only compiled on macOS.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSData", "NSDate", "NSDictionary", "NSError", "NSHTTPCookie", "NSString"] }
+objc2-app-kit = { version = "0.3", features = ["NSImage", "NSBitmapImageRep", "NSImageRep"] }
+objc2-web-kit = { version = "0.3", features = ["WKHTTPCookieStore", "WKWebsiteDataStore", "WKWebView", "WKSnapshotConfiguration", "block2"] }
+block2 = "0.6"
+

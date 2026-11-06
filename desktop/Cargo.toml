@@ -1,0 +1,20 @@
+[workspace]
+members = ["crates/host-core", "apps/desktop-tauri/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "LGPL-3.0-or-later"
+version = "0.14.9"
+
+# The Tauri shell depends on published crates.io releases: `tauri` 2.12.1
+# (resolving to 2.12.2), `tauri-build` 2.7.1 and `tauri-utils` 2.10.1. `tauri`
+# and `tauri-utils` used to resolve through a `[patch.crates-io]` pointing at a
+# local Tauri checkout on an absolute Windows path, which pinned every build to
+# one developer machine and made a macOS build impossible. The official plugins
+# (dialog / opener / notification / single-instance) resolve from crates.io to
+# the same `tauri` sources, so the graph still contains a single `tauri` crate.
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true

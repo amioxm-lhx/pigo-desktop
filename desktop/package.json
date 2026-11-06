@@ -1,0 +1,40 @@
+{
+  "name": "pi-desktop",
+  "private": true,
+  "version": "0.14.9",
+  "description": "Local-first AI coding agent desktop client",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22.19.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @pi-desktop/desktop dev",
+    "app": "pnpm --filter @pi-desktop/desktop run app",
+    "pi-plugin": "pi-plugin",
+    "build": "pnpm -r --if-present build && cargo build --release -p host-core",
+    "build:js": "pnpm -r --if-present build",
+    "build:host": "cargo build --release -p host-core",
+    "build:agent": "node scripts/build-agent.mjs",
+    "package:mac": "bash scripts/build-macos.sh",
+    "package:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1",
+    "typecheck": "pnpm -r --if-present build && pnpm -r --if-present typecheck",
+    "test": "pnpm build:js && pnpm -r --if-present test && cargo test -p host-core",
+    "test:e2e": "node --test apps/desktop-tauri/test/e2e/*.test.mjs",
+    "test:host": "cargo test -p host-core",
+    "check:marketplace": "node scripts/check-marketplace-catalog.mjs",
+    "check:release-docs": "node scripts/check-release-docs.mjs",
+    "docs:dev": "pnpm --filter @pi-desktop/docs dev",
+    "docs:build": "pnpm --filter @pi-desktop/docs build",
+    "docs:preview": "pnpm --filter @pi-desktop/docs preview",
+    "docs:check": "pnpm --filter @pi-desktop/docs check:locales",
+    "lint": "pnpm lint:biome && pnpm -r --if-present lint",
+    "host:dev": "cargo run -p host-core",
+    "clean": "pnpm -r --if-present clean && cargo clean",
+    "lint:biome": "biome lint"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@pi-desktop/plugin-devkit": "workspace:*"
+  }
+}

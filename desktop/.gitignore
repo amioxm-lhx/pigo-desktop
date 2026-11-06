@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+out/
+build/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+!apps/desktop/build/
+apps/desktop/build/icon.iconset/
+!apps/desktop-tauri/build/
+target/
+*.tsbuildinfo
+apps/desktop/out/
+apps/desktop/dist-electron/
+apps/desktop/release/
+packages/*/dist/
+packages/*/dist-bundle/
+
+# electron-builder's Windows NSIS and portable targets leave a 0-byte file
+# literally named "{}" in the app directory. It carries no content and is not
+# part of the package, so it is ignored rather than committed by accident.
+apps/desktop/{}
+
+# Local design-source exports
+docs/image/pi_logo.png
+docs/image/pi_logo.webp
+*.tgz
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+coverage/
+.cache/
+.turbo/
+
+# Local runtime data
+.pi-desktop/
+.pi-desktop-test/
+.cc-connect/
+
+.playwright-mcp/
+.claude/
+.workbuddy
+electron.vite.config.*.mjs

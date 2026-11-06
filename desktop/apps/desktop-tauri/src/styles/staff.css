@@ -1,0 +1,1282 @@
+/*
+  AI staff console: roster, workflow graph editor, shared memory, run log.
+
+  Everything is scoped to .staff-* so this layer can be reordered without
+  touching the chat surfaces it sits next to.
+*/
+
+.staff-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.staff-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  flex: 0 0 auto;
+}
+
+.staff-tab {
+  padding: 7px 10px;
+  font-size: var(--text-sm-plus);
+  color: var(--ds-text-muted);
+  border-bottom: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+}
+
+.staff-tab:hover {
+  color: var(--ds-text-secondary);
+}
+
+.staff-tab.on {
+  color: var(--ds-text-primary);
+  border-bottom-color: var(--ds-accent);
+  font-weight: var(--font-weight-medium);
+}
+
+.staff-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: var(--ds-tile);
+  flex: 0 0 auto;
+}
+
+.staff-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.staff-stat b {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-stat span {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+}
+
+.staff-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  align-items: start;
+}
+
+.staff-body.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  background: var(--ds-tile);
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.staff-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm-plus);
+  text-align: left;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.staff-list-item:hover {
+  background: var(--ds-bg-hover);
+}
+
+.staff-list-item.on {
+  background: var(--ds-bg-active);
+  color: var(--ds-text-primary);
+}
+
+.staff-list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.staff-list-sub {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-round);
+  background: var(--ds-text-faint);
+  flex: 0 0 auto;
+}
+
+.staff-dot.on {
+  background: var(--ds-success);
+}
+
+.staff-dot.warn {
+  background: var(--ds-warning);
+}
+
+.staff-dot.bad {
+  background: var(--ds-error);
+}
+
+.staff-form {
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  background: var(--ds-tile);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px 12px;
+}
+
+.staff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.staff-toolbar .staff-spacer {
+  flex: 1 1 auto;
+}
+
+.staff-section-title {
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-strong);
+}
+
+.staff-hint {
+  font-size: var(--text-xs-plus);
+  color: var(--ds-text-muted);
+  line-height: var(--leading-normal, 1.5);
+}
+
+/* A site that cannot be read is not a detail: the sweep it feeds comes back empty. */
+.staff-hint-warn {
+  color: var(--ds-warning);
+}
+
+.staff-error {
+  font-size: var(--text-xs-plus);
+  color: var(--ds-error);
+}
+
+.staff-ok {
+  font-size: var(--text-xs-plus);
+  color: var(--ds-success);
+}
+
+/* Node graph editor */
+
+.staff-canvas {
+  position: relative;
+  overflow: auto;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-inset);
+  background-image: radial-gradient(var(--ds-border-default) 1px, transparent 1px);
+  background-size: 22px 22px;
+  height: 58vh;
+  min-height: 320px;
+}
+
+.staff-canvas-inner {
+  position: relative;
+}
+
+/* The zoom plane. It holds the graph at its own coordinates and is scaled as
+   one, so nodes, ports and edges stay in step. It is out of flow, so the
+   scrollable area is the inner box -- the plane plus the pad -- rather than the
+   plane's unscaled size. */
+.staff-canvas-plane {
+  position: absolute;
+  transform-origin: top left;
+}
+
+/* Anchored to the wrapper, not the scroll container, so the controls stay in
+   the corner while the graph scrolls under them. */
+.staff-canvas-wrap {
+  position: relative;
+}
+
+.staff-canvas-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+}
+
+.staff-edge {
+  stroke: var(--ds-border-strong);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.staff-edge.on {
+  stroke: var(--ds-accent);
+}
+
+.staff-node {
+  position: absolute;
+  width: 176px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  padding: 7px 9px;
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.staff-node.on {
+  border-color: var(--ds-accent);
+  box-shadow: var(--ds-elevation-stroke);
+}
+
+.staff-node.linking {
+  border-color: var(--ds-warning);
+}
+
+.staff-node-kind {
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-wide, 0.04em);
+  text-transform: uppercase;
+  color: var(--ds-text-faint);
+}
+
+.staff-node-title {
+  font-size: var(--text-sm-plus);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-node-sub {
+  font-size: var(--text-3xs);
+  color: var(--ds-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-port {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: var(--radius-round);
+  background: var(--ds-bg-tertiary);
+  border: 1px solid var(--ds-border-strong);
+  cursor: crosshair;
+}
+
+.staff-port.in {
+  left: -6px;
+  top: 50%;
+  margin-top: -5px;
+}
+
+.staff-port.out {
+  right: -6px;
+  top: 50%;
+  margin-top: -5px;
+}
+
+.staff-port:hover {
+  background: var(--ds-accent);
+}
+
+.staff-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.staff-chip {
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-xs);
+  padding: 3px 8px;
+  font-size: var(--text-xs-plus);
+  color: var(--ds-text-secondary);
+  background: var(--ds-tile);
+  cursor: pointer;
+}
+
+.staff-chip:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
+.staff-chip.on {
+  border-color: var(--ds-accent);
+  color: var(--ds-text-primary);
+}
+
+/* A multi-select set of chips, e.g. the channels one probe walks. */
+.staff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.staff-yaml {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed, 1.6);
+  white-space: pre;
+  overflow: auto;
+  max-height: 58vh;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-secondary);
+  margin: 0;
+}
+
+/* Memory */
+
+.staff-memory {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-memory-item {
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--ds-tile);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.staff-memory-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.staff-memory-text {
+  font-size: var(--text-sm-plus);
+  color: var(--ds-text-primary);
+  white-space: pre-wrap;
+}
+
+.staff-memory-meta {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.staff-tag {
+  font-size: var(--text-3xs);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
+  color: var(--ds-text-muted);
+}
+
+.staff-tag.warn {
+  border-color: var(--ds-warning);
+  color: var(--ds-warning);
+}
+
+/* Runs */
+
+.staff-runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.staff-runs th {
+  text-align: left;
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  white-space: nowrap;
+}
+
+.staff-runs td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  color: var(--ds-text-secondary);
+  vertical-align: top;
+}
+
+.staff-runs tr:hover td {
+  background: var(--ds-bg-hover);
+}
+
+.staff-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.staff-run-row {
+  cursor: pointer;
+}
+
+.staff-run-results td {
+  background: var(--ds-bg-hover);
+  padding-top: 0;
+}
+
+.staff-run-result {
+  display: flex;
+  gap: 8px;
+  padding: 3px 0;
+  align-items: flex-start;
+}
+
+.staff-run-result-title {
+  flex: none;
+  min-width: 88px;
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-secondary);
+}
+
+.staff-run-result-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.staff-run-result-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ds-text-secondary);
+}
+
+.staff-run-result-report {
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-2xs);
+  background: var(--ds-bg-hover);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--ds-text-secondary);
+}
+
+/* Sidebar entry */
+
+.sidebar-apps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 0 0;
+  margin-top: 6px;
+  border-top: 1px solid var(--ds-border-subtle);
+  flex: 0 0 auto;
+}
+
+.sidebar-apps-label {
+  padding: 2px 8px 4px;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+  letter-spacing: var(--tracking-wide, 0.04em);
+}
+
+.sidebar-app-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm-plus);
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-app-row:hover {
+  background: var(--ds-bg-hover);
+}
+
+.sidebar-app-row.on {
+  background: var(--ds-bg-active);
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.sidebar-app-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  background: var(--ds-tile-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ds-text-secondary);
+  flex: 0 0 auto;
+}
+
+.sidebar-app-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar-app-count {
+  min-width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--ds-success);
+  color: var(--ds-bg-under);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+/* Sites: the pages a manual sweep actually read. */
+
+.staff-collected {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.staff-collected-page {
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 10px;
+}
+
+.staff-collected-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.staff-collected-item {
+  font-size: var(--text-xs-plus);
+  color: var(--ds-text-muted);
+  padding: 2px 0;
+  border-top: 1px dashed var(--ds-border-default);
+}
+
+/* ---------------------------------------------------------------------- */
+/* The boards the middle managers read (My apps -> AI team, opportunities,  */
+/* content studio, daily report, arsenal).                                  */
+/*                                                                          */
+/* A board is read, not operated: one column of decisions per screen, with  */
+/* the proposal rail beside it. The styles below keep the four boards on one */
+/* grid so switching between them never moves the thing you were reading.  */
+/* ---------------------------------------------------------------------- */
+
+/* This feature is not prose, and .page-frame is built for prose: it caps a
+   destination page at 980px. At that measure six pipeline columns were
+   144px wide, the advice band lost the right two thirds of its row, and the
+   workflow canvas (1336px of nodes) was clipped with no way to reach the
+   rest. The staff pages read the pane instead, and only they opt out. */
+.page-frame.board-page,
+.page-frame.staff-page {
+  width: 100%;
+}
+
+.board-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.board-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The advice band sits above the board, not beside it.
+
+   Beside it, the rail took a fixed 360px of a 924px page and left the
+   board 544px, which is not enough to lay out a lead pipeline: the
+   columns ran off the right edge and the owner could only ever see two
+   of them. Stacked, the board gets the whole page and the advice is the
+   first thing read rather than the last. */
+.board-split {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The advice is the one part of a board the owner has to act on, so it goes
+   above the columns rather than below a column that can be a screen tall. */
+.board-split > .advice-rail {
+  order: -1;
+}
+
+/* Every column is an equal share of the page and none of them scroll: a
+   fixed 220px column only fits two and a half of them, so the pipeline
+   read as a broken row instead of a pipeline. */
+.board-columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.board-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-chip);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* A block, not a flex column.
+
+   The card stacks its rows with margins so that the title and the quote
+   are ordinary blocks: as flex items they were blockified, which quietly
+   turned `-webkit-box` into `flow-root` and left the line clamp inert.
+   The quote was then cut by `overflow: hidden` at whatever height was
+   left -- through the middle of a line of text. */
+.lead-card {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.lead-card > * + * {
+  margin-top: 6px;
+}
+
+.lead-card:hover {
+  border-color: var(--ds-border-strong);
+}
+
+.lead-card.on {
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 1px var(--ds-accent) inset;
+}
+
+.lead-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lead-site {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.lead-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-compact-plus);
+  /* Two lines, so one long headline cannot make its card a head taller
+     than the five beside it. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lead-quote {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  opacity: 0.82;
+  /* Clamped rather than cut: a quote that stops mid-character reads as a
+     rendering fault, and the card is often what the owner judges the lead on.
+     This only bites because the card is a block -- see .lead-card. */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lead-quote::before {
+  content: "\201C";
+}
+
+.lead-quote::after {
+  content: "\201D";
+}
+
+.lead-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-xs);
+  opacity: 0.55;
+}
+
+/* A long handle wraps onto a second line and leaves its card a row taller
+   than the ones beside it, so the handle gives way and the age does not. */
+.lead-foot > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-foot > :last-child {
+  flex: 0 0 auto;
+}
+
+.lead-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--ds-border-default);
+}
+
+.lead-angle {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.lead-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--ds-accent);
+  text-decoration: none;
+}
+
+.lead-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.content-list,
+.arsenal-main,
+.report-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.content-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+}
+
+.draft-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.draft-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.draft-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.draft-age,
+.draft-metrics {
+  font-size: var(--text-xs);
+  opacity: 0.55;
+}
+
+.draft-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.report-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-delta {
+  font-size: var(--text-xs);
+  opacity: 0.55;
+}
+
+.topic-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topic-rank li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-chip);
+}
+
+.topic-rank li[data-rank="1"] {
+  background: var(--ds-bg-active);
+}
+
+.topic-name {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.topic-numbers {
+  font-size: var(--text-xs);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.trend-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+  padding: 8px 4px 0;
+}
+
+.trend-bar {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.trend-fill {
+  width: 100%;
+  min-height: 2px;
+  border-radius: var(--radius-3xs) var(--radius-3xs) 0 0;
+  background: var(--ds-accent);
+  opacity: 0.75;
+}
+
+.trend-day {
+  margin-top: 4px;
+  font-size: var(--text-3xs);
+  opacity: 0.5;
+  writing-mode: vertical-rl;
+}
+
+.report-counters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  opacity: 0.8;
+}
+
+/* The owner reading a site dashboard back into the board. */
+.metric-entry {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.metric-entry > :first-child {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.metric-entry input {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A row of proposal cards that fills whatever width it is given.
+   This cannot be a grid: the heading and the answered list span every
+   column, so `auto-fit` never collapses the columns it has no card for,
+   and one open proposal sat 400px wide with 800px of empty page beside it.
+   Flex shares the row between the cards that are actually there. */
+.advice-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* A heading and a list of answered proposals are not cards: they take a
+   row of their own rather than a share of the cards' row. */
+.advice-rail > .staff-section-title,
+.advice-rail > .advice-answered,
+.advice-rail > .staff-hint {
+  flex: 1 1 100%;
+}
+
+.advice-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 300px;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ds-accent);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-secondary);
+}
+
+.advice-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.advice-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--ds-accent);
+}
+
+.advice-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-compact-plus);
+}
+
+.advice-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-chat);
+  opacity: 0.85;
+}
+
+.advice-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.advice-facts dt {
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.advice-facts dd {
+  margin: 0;
+  line-height: var(--leading-body);
+}
+
+.advice-evidence {
+  font-size: var(--text-sm);
+}
+
+.advice-evidence summary {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.advice-evidence ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.advice-evidence li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-chip);
+}
+
+.advice-cite {
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.advice-label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.advice-quote {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  opacity: 0.8;
+}
+
+.advice-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.advice-outcome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+}
+
+.advice-directive {
+  opacity: 0.8;
+}
+
+.advice-result {
+  margin: 0;
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+  opacity: 0.75;
+}
+
+.advice-answered {
+  font-size: var(--text-sm);
+}
+
+.advice-answered summary {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.advice-answered .advice-card {
+  margin-top: 8px;
+  border-color: var(--ds-border-default);
+}
+
+/* The last mile the owner types back in: a thread link, or the counters a
+   site only shows a signed-in visitor. Both sit inside the card they
+   belong to, because a number filed somewhere else is a number nobody
+   connects to the piece that earned it. */
+.draft-backfill {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+.draft-backfill .metric-entry {
+  margin-top: 0;
+}
+
+/* Filing the answer a person actually gave. It sits above the columns
+   because it is the one card the sweeps can never bring home. */
+.lead-intake {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-tile);
+}
+
+.lead-intake-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
+  gap: 8px;
+}
+
+.lead-intake-grid > :first-child {
+  grid-column: 1 / -1;
+}
+
+.lead-won {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+/* The return leg, reported above the columns.
+   A strip rather than a card: it answers "is anyone reading the replies" at a
+   glance, and the per-piece detail stays on the cards themselves. */
+.watch-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: var(--ds-tile);
+  flex: 0 0 auto;
+}
+
+.watch-bar[data-watch="running"] {
+  border-color: var(--ds-border-strong);
+}
+
+.watch-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.watch-title {
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-semibold);
+}
+
+.watch-when {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The button sits at the far end of the strip, away from the readings. */
+.watch-head > :last-child {
+  margin-left: auto;
+}
+
+.watch-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One line per piece read back. Long titles truncate rather than wrap, so the
+   strip keeps the same height however many pieces are out there. */
+.watch-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+}
+
+.watch-lines li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Where a card came from, on the expanded card. */
+.lead-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

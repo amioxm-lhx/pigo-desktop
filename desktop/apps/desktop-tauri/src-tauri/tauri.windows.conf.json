@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "../resources/models.dev/api.json": "models.dev/api.json",
+      "../../../target/release/pi-desktop-host-core.exe": "bin/pi-desktop-host-core.exe",
+      "../../../sidecar/build/pi-go-desktop-agent.exe": "bin/pi-go-desktop-agent.exe"
+    }
+  }
+}

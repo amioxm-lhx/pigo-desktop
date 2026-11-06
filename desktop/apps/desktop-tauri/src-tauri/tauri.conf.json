@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "pigo-desktop",
+  "version": "0.14.9",
+  "identifier": "com.pi-agent-go.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "pigo-desktop",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 940,
+        "minHeight": 600,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "backgroundColor": { "red": 0, "green": 0, "blue": 0, "alpha": 0 },
+        "windowEffects": {
+          "effects": ["sidebar"],
+          "state": "followsWindowActiveState",
+          "radius": 10
+        }
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "resources": {
+      "../resources/models.dev/api.json": "models.dev/api.json",
+      "../../../LICENSE": "licenses/LGPL-3.0-or-later.txt",
+      "../../../../LICENSE": "licenses/MIT.txt"
+    },
+    "shortDescription": "pigo-desktop desktop application",
+    "icon": [
+      "../build/icon.icns",
+      "../build/icon.ico",
+      "../build/icon.png"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "files": {
+        "Resources/bin/pi-desktop-host-core": "../../../target/release/pi-desktop-host-core",
+        "Resources/bin/pi-go-desktop-agent": "../../../sidecar/build/pi-go-desktop-agent"
+      },
+      "dmg": {
+        "background": "../build/dmg-background.png",
+        "windowSize": {
+          "width": 720,
+          "height": 500
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 250
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 250
+        }
+      }
+    }
+  }
+}

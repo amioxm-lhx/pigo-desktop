@@ -1,0 +1,719 @@
+/*
+  The owner's desk: Today, Pipeline, Data.
+
+  These three pages read the same rows as the boards next to them but ask a
+  different question -- where is the round, and what is it waiting for -- so
+  they get their own layer rather than three more rules in staff.css.
+
+  One rule runs through all of it. A station is lit when the ball is in the
+  owner's court, dim when an employee has it, and red only when something is
+  genuinely broken. The lighting is the page's whole message, so it is carried
+  by the border and the number together rather than by a badge somewhere in the
+  corner: a card has to be readable as "this one is mine" from across a desk.
+*/
+
+.desk-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.desk-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 1080px) {
+  .desk-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/*
+  The day page draws one column on purpose: the rows only a person can settle
+  come first and get the width, and everything the machine does on its own is
+  folded into a single line under them. A page with six blocks of equal weight
+  made the owner ask which one wanted them, which is the question this layout
+  answers by construction.
+*/
+
+/* ------------------------------------------------------------------ blocks */
+
+.desk-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-tile);
+  min-width: 0;
+}
+
+.desk-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.desk-block-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------- the day -- */
+
+.desk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.desk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-secondary);
+}
+
+/*
+  A row and the last mile it unfolds underneath. The entry is the column and
+  the row keeps its own shape, so a row reads the same whether the panel below
+  it is open or shut -- nothing jumps when the owner opens one.
+*/
+.desk-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/*
+  Publishing, on the row: the words, the copy button and the address field.
+  These are the three things the studio held; they are here because this is
+  where the owner already is when they decide a piece is good to go.
+*/
+.desk-publish {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-secondary);
+}
+
+.desk-publish .desk-row-actions {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.desk-row-bad {
+  border-color: color-mix(in oklab, var(--ds-error) 40%, transparent);
+  background: color-mix(in oklab, var(--ds-error) 8%, var(--ds-bg-secondary));
+}
+
+.desk-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.desk-row-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.desk-row-sub {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.desk-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.desk-tag {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-bg-chip);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+}
+
+.desk-tag-bad {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in oklab, var(--ds-error) 18%, transparent);
+  color: var(--ds-error);
+}
+
+.desk-tag-inline {
+  margin-left: 6px;
+}
+
+/* The roster: nine employees, one line each, at a glance. */
+.desk-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.desk-staff {
+  display: grid;
+  grid-template-columns: 10px minmax(64px, max-content) minmax(0, 1fr) minmax(0, max-content);
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  font-size: var(--text-xs-plus);
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.desk-staff:last-child {
+  border-bottom: none;
+}
+
+.desk-staff-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+}
+
+.desk-staff-what {
+  color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-staff-when {
+  color: var(--ds-text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.desk-loops {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--ds-border-subtle);
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+}
+
+.desk-loops > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The last round, drawn as the steps the run actually took. */
+.desk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.desk-step {
+  display: grid;
+  grid-template-columns: minmax(64px, max-content) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 8px 5px 10px;
+  border-left: 2px solid var(--ds-border-subtle);
+  font-size: var(--text-xs-plus);
+}
+
+.desk-step.on {
+  border-left-color: var(--ds-success);
+}
+
+.desk-step.off {
+  opacity: 0.5;
+}
+
+.desk-step-name {
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.desk-step-said {
+  color: var(--ds-text-muted);
+  line-height: var(--leading-normal);
+  min-width: 0;
+}
+
+.desk-step-report summary {
+  color: var(--ds-text-faint);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.desk-step-report pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 260px;
+  overflow: auto;
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------------- the line -- */
+
+.desk-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+}
+
+.desk-legend-hint {
+  flex: 1 1 auto;
+  text-align: right;
+}
+
+.desk-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.desk-key::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-border-strong);
+}
+
+.desk-key-owner::before {
+  background: var(--ds-accent);
+}
+
+.desk-key-stuck::before {
+  background: var(--ds-error);
+}
+
+.desk-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.desk-progress-track {
+  display: flex;
+  gap: 3px;
+}
+
+.desk-progress-cell {
+  flex: 1 1 0;
+  height: 6px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-bg-chip);
+}
+
+.desk-progress-cell[data-filled="yes"] {
+  background: var(--ds-border-strong);
+}
+
+.desk-progress-cell[data-filled="yes"].state-owner {
+  background: var(--ds-accent);
+}
+
+.desk-progress-cell.state-stuck {
+  background: var(--ds-error);
+}
+
+/* Ten stations, five to a row: two even rows read as a route, where an
+   auto-fit row leaves eight and then a ragged pair. */
+.desk-stations {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .desk-stations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.desk-station {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 10px 11px;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ds-tile);
+  color: var(--ds-text-secondary);
+  transition: border-color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.desk-station:hover {
+  background: var(--ds-tile-hover);
+}
+
+.desk-station.on {
+  border-color: var(--ds-border-strong);
+}
+
+/* Lit: nothing moves until the owner does. */
+.desk-station.state-owner {
+  border-color: var(--ds-border-strong);
+  background: var(--ds-tile-hover);
+}
+
+.desk-station.state-owner .desk-station-count {
+  color: var(--ds-text-primary);
+}
+
+.desk-station.state-owner .desk-station-name {
+  color: var(--ds-text-primary);
+}
+
+.desk-station.state-stuck {
+  border-color: color-mix(in oklab, var(--ds-error) 50%, transparent);
+  background: color-mix(in oklab, var(--ds-error) 8%, var(--ds-tile));
+}
+
+.desk-station.state-stuck .desk-station-count,
+.desk-station.state-stuck .desk-station-note {
+  color: var(--ds-error);
+}
+
+.desk-station.state-idle {
+  opacity: 0.62;
+}
+
+.desk-station-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.desk-station-name {
+  font-size: var(--text-sm-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-station-you {
+  padding: 1px 5px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.desk-station-who {
+  font-size: var(--text-3xs);
+  color: var(--ds-text-faint);
+  white-space: nowrap;
+}
+
+.desk-station-count {
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-heading);
+  color: var(--ds-text-secondary);
+}
+
+.desk-station-out {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.desk-station-at {
+  margin-top: 4px;
+  font-size: var(--text-3xs);
+  color: var(--ds-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.desk-station-note {
+  margin-top: 2px;
+  font-size: var(--text-3xs);
+  color: var(--ds-warning);
+  line-height: var(--leading-normal);
+}
+
+/* ------------------------------------------------------------- the data -- */
+
+.desk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs-plus);
+}
+
+.desk-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ds-border-default);
+  color: var(--ds-text-muted);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.desk-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  color: var(--ds-text-primary);
+  vertical-align: top;
+}
+
+.desk-table tr:last-child td {
+  border-bottom: none;
+}
+
+.desk-table tbody tr:hover td {
+  background: var(--ds-bg-hover);
+}
+
+.desk-table-wide td:first-child {
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+
+.desk-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.desk-dim {
+  color: var(--ds-text-muted);
+}
+
+.desk-table-open {
+  width: 28px;
+  text-align: right;
+}
+
+.desk-refs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs-plus);
+}
+
+.desk-refs li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.desk-refs li:last-child {
+  border-bottom: none;
+}
+
+.desk-ref-name {
+  color: var(--ds-text-secondary);
+}
+
+.desk-ref-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-primary);
+}
+
+/* The cleanup: a list of rules, each already saying what it costs. */
+.desk-dialog {
+  border-color: var(--ds-border-strong);
+  background: var(--ds-bg-secondary);
+}
+
+.desk-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.desk-rule {
+  display: grid;
+  grid-template-columns: minmax(160px, max-content) minmax(0, 1fr) minmax(90px, max-content);
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  font-size: var(--text-xs-plus);
+}
+
+.desk-rule:last-child {
+  border-bottom: none;
+}
+
+.desk-rule-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.desk-rule-name {
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.desk-rule-hint {
+  color: var(--ds-text-muted);
+  line-height: var(--leading-normal);
+  min-width: 0;
+}
+
+.desk-rule-count {
+  text-align: right;
+  color: var(--ds-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.desk-replay-pick {
+  max-width: 260px;
+}
+
+.desk-note {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+  line-height: var(--leading-normal);
+}
+
+/* The half of a stage that is still on disk and no longer in use. */
+.desk-parked {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one banner that outranks the fold: a site that is signed out, a run that
+   died. Nothing behind a blocker can move, so it is drawn above the list where
+   it cannot be missed, and it is drawn only when there is one. */
+.desk-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--ds-error) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--ds-error) 8%, var(--ds-bg-secondary));
+}
+
+/* The fold: who is on duty, the loops, the newest round -- one line until asked. */
+.desk-fold {
+  padding: 0;
+}
+
+.desk-fold-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-md);
+}
+
+.desk-fold-head::-webkit-details-marker {
+  display: none;
+}
+
+.desk-fold-head:hover {
+  background: var(--ds-bg-hover);
+}
+
+.desk-fold-chevron {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  transition: transform 140ms ease;
+}
+
+.desk-fold[open] .desk-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.desk-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 14px 14px;
+}
+
+.desk-fold-part {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.desk-chip-ok {
+  flex: 0 0 auto;
+  font-size: var(--text-3xs);
+  color: var(--ds-text-faint);
+}

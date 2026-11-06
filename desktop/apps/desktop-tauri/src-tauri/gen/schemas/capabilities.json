@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Renderer capabilities for the pi-desktop Tauri shell","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-start-dragging","dialog:default","opener:default","notification:default"]}}
