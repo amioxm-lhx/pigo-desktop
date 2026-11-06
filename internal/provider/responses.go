@@ -81,6 +81,9 @@ func (d *responsesDriver) StreamCompletion(ctx context.Context, req CompletionRe
 	if key := strings.TrimSpace(req.Config.APIKey); key != "" {
 		opts = append(opts, option.WithAPIKey(key))
 	}
+	for key, value := range req.Config.Headers {
+		opts = append(opts, option.WithHeader(key, value))
+	}
 	opts = append(opts, d.clientOpts...)
 	client := openai.NewClient(opts...)
 
@@ -308,6 +311,9 @@ func buildResponsesParams(req CompletionRequest) responses.ResponseNewParams {
 	}
 	if tools := buildResponsesTools(req.Context.Tools); len(tools) > 0 {
 		params.Tools = tools
+	}
+	if maxTok := maxOutputTokensFor(req); maxTok > 0 {
+		params.MaxOutputTokens = openai.Int(int64(maxTok))
 	}
 
 	items := make(responses.ResponseInputParam, 0, len(req.Context.Messages))

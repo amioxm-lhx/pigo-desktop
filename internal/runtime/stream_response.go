@@ -62,6 +62,9 @@ type LoopConfig struct {
 
 	// Extra is forwarded to StreamConfig.Extra.
 	Extra map[string]any
+	// Headers is forwarded to StreamConfig.Headers on every request, including
+	// compaction summaries (a vendor account may need integration headers).
+	Headers map[string]string
 }
 
 // streamAssistantResponse runs one assistant turn: it builds the request from
@@ -106,6 +109,7 @@ func streamAssistantResponse(ctx context.Context, agentCtx *agentcore.AgentConte
 		APIKey:        key,
 		ThinkingLevel: cfg.ThinkingLevel,
 		Extra:         cfg.Extra,
+		Headers:       cfg.Headers,
 	})
 	if err != nil {
 		// Early "cannot build stream" failure: synthesize a terminal message so

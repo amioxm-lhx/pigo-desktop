@@ -109,6 +109,9 @@ type CompactionEvent struct {
 	SummarizedCount int
 	// KeptCount is the number of recent messages retained verbatim.
 	KeptCount int
+	// Summary is the text that replaced the summarized prefix. It is empty when
+	// compaction failed, because the original context is preserved in that case.
+	Summary string
 	// ErrorMessage is non-empty when compaction failed; the original context is
 	// preserved in that case.
 	ErrorMessage string

@@ -170,6 +170,39 @@ func TestCompactionEventEnvelope(t *testing.T) {
 	}
 }
 
+func TestAutoCompactionNoOpClosesStartEvent(t *testing.T) {
+	main := scriptedStream([]agentcore.AssistantMessage{
+		{RoleField: agentcore.RoleAssistant, StopReason: agentcore.StopReasonEndTurn, Content: agentcore.ContentList{agentcore.NewTextContent("ok")}},
+	})
+	cfg := newRunCfg(main)
+	cfg.ContextWindow = 200
+	cfg.Compaction = compaction.CompactionSettings{Enabled: true, ReserveTokens: 100, KeepRecentTokens: 33}
+
+	// One oversized message: the threshold fires, but the cut point keeps the
+	// whole list, so there is nothing to summarize.
+	agentCtx := &agentcore.AgentContext{Messages: bigUserMessages(1, 500)}
+
+	events := collectEvents(t, agentLoop(context.Background(), agentCtx, cfg))
+	var started, ended bool
+	for _, event := range events {
+		switch event.(type) {
+		case agentcore.CompactionStartEvent:
+			started = true
+		case agentcore.CompactionEvent:
+			if !started {
+				t.Errorf("compaction event before start event")
+			}
+			ended = true
+		}
+	}
+	if !started || !ended {
+		t.Fatalf("a no-op compaction must still close its start event: %v", eventKinds(events))
+	}
+	if len(agentCtx.Messages) != 2 || agentCtx.Messages[0].Role() != agentcore.RoleUser {
+		t.Errorf("no-op compaction must preserve the context: %+v", agentCtx.Messages)
+	}
+}
+
 func TestAutoCompactionFailureIsNonFatal(t *testing.T) {
 	main := scriptedStream([]agentcore.AssistantMessage{
 		{RoleField: agentcore.RoleAssistant, StopReason: agentcore.StopReasonEndTurn, Content: agentcore.ContentList{agentcore.NewTextContent("ok")}},

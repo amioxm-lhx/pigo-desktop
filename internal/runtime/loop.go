@@ -79,6 +79,12 @@ type RunConfig struct {
 	// ShouldStopAfterTurn runs after each turn_end; true ends the run with an
 	// agent_end event (FR-7).
 	ShouldStopAfterTurn func(ctx context.Context, agentCtx *agentcore.AgentContext) bool
+	// OnCompaction, when set, is called synchronously when a compaction settles,
+	// before its CompactionEvent reaches the stream. before is a stable copy of
+	// the context the summary covers; a caller may persist a checkpoint from it
+	// so the event can carry its identity. It does not change compaction control
+	// flow: the context has already been rebuilt when this runs.
+	OnCompaction func(ctx context.Context, event agentcore.CompactionEvent, before agentcore.MessageList)
 
 	// OnStop, when set, is consulted right before the run would end naturally (no
 	// tool calls and no follow-up messages). Returning a decision with Block=true
@@ -361,23 +367,40 @@ func maybeAutoCompact(ctx context.Context, agentCtx *agentcore.AgentContext, cfg
 	if !compaction.ShouldCompact(before, cfg.ContextWindow, cfg.Compaction) {
 		return
 	}
+	// Snapshot the pre-compaction context for callers that keep their own
+	// transcript: the compaction replaces agentCtx.Messages below, so this is the
+	// only stable view of what the summary covers.
+	beforeMessages := append(agentcore.MessageList(nil), agentCtx.Messages...)
 	// Signal the start so a front-end can show an in-progress indicator while the
 	// summarization request (an LLM call that blocks the loop) is in flight.
 	_ = emit(agentcore.CompactionStartEvent{Reason: "threshold", TokensBefore: before})
 	res, err := runCompaction(ctx, agentCtx.Messages, cfg)
 	kept := len(agentCtx.Messages)
 	if err != nil {
-		_ = emit(agentcore.CompactionEvent{
+		event := agentcore.CompactionEvent{
 			Reason:       "threshold",
 			TokensBefore: before,
 			TokensAfter:  before,
 			KeptCount:    kept,
 			ErrorMessage: err.Error(),
-		})
+		}
+		notifyCompaction(ctx, cfg, event, beforeMessages)
+		_ = emit(event)
 		return
 	}
 	if res == nil {
-		// Nothing to summarize (cut point left no prefix); leave context as-is.
+		// Nothing to summarize (cut point left no prefix). The start event is
+		// already on the stream, so close it with a failure rather than leaving a
+		// front-end stuck in a "compacting" state.
+		event := agentcore.CompactionEvent{
+			Reason:       "threshold",
+			TokensBefore: before,
+			TokensAfter:  before,
+			KeptCount:    kept,
+			ErrorMessage: "no context is available to compact",
+		}
+		notifyCompaction(ctx, cfg, event, beforeMessages)
+		_ = emit(event)
 		return
 	}
 	// Persist a checkpoint of the collapsed prefix before rewriting the context so
@@ -390,13 +413,25 @@ func maybeAutoCompact(ctx context.Context, agentCtx *agentcore.AgentContext, cfg
 	summarized := len(agentCtx.Messages) - (len(rebuilt) - 1)
 	agentCtx.Messages = rebuilt
 	after := compaction.EstimateContextTokens(rebuilt).Tokens
-	_ = emit(agentcore.CompactionEvent{
+	event := agentcore.CompactionEvent{
 		Reason:          "threshold",
 		TokensBefore:    before,
 		TokensAfter:     after,
 		SummarizedCount: summarized,
 		KeptCount:       len(rebuilt) - 1,
-	})
+		Summary:         res.Summary,
+	}
+	notifyCompaction(ctx, cfg, event, beforeMessages)
+	_ = emit(event)
+}
+
+// notifyCompaction calls the OnCompaction seam with the stable pre-compaction
+// context. It runs before the event reaches the stream so a caller can persist
+// a checkpoint that the event then reports on.
+func notifyCompaction(ctx context.Context, cfg *RunConfig, event agentcore.CompactionEvent, before agentcore.MessageList) {
+	if cfg.OnCompaction != nil {
+		cfg.OnCompaction(ctx, event, before)
+	}
 }
 
 // runCompaction invokes compaction.Compact with the loop's summarization config,
@@ -420,7 +455,7 @@ func runCompaction(ctx context.Context, msgs agentcore.MessageList, cfg *RunConf
 			key = dyn
 		}
 	}
-	scfg := provider.StreamConfig{APIKey: key, ThinkingLevel: cfg.ThinkingLevel}
+	scfg := provider.StreamConfig{APIKey: key, ThinkingLevel: cfg.ThinkingLevel, Headers: cfg.Headers}
 	return compaction.Compact(ctx, stream, model, msgs, cfg.Compaction, -1, nil, "", scfg)
 }
 

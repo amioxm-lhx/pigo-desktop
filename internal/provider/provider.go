@@ -110,6 +110,11 @@ type StreamConfig struct {
 	ThinkingLevel agentcore.ThinkingLevel
 	// Extra holds provider-specific options; opaque to the loop.
 	Extra map[string]any
+	// Headers are extra outbound HTTP headers for this request (a vendor
+	// account's integration headers, an OAuth beta flag, user overrides).
+	// Reserved auth keys set by the driver are applied first, so an explicit
+	// header here wins without removing the driver's default.
+	Headers map[string]string
 }
 
 // StreamFn produces a provider stream for a model + shaped context. Per the

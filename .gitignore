@@ -63,3 +63,5 @@ book/images/*.pdf
 .DS_Store
 
 .qoder
+.vscode
+.workbuddy

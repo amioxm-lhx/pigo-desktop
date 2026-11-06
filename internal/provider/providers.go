@@ -102,6 +102,9 @@ func (d *openAICompatDriver) StreamCompletion(ctx context.Context, req Completio
 		for k, v := range d.extraHeaders {
 			httpReq.Header.Set(k, v)
 		}
+		for k, v := range req.Config.Headers {
+			httpReq.Header.Set(k, v)
+		}
 		return httpReq, nil
 	}
 	return StreamRequest(ctx, TransportConfig{NewRequest: newReq, Decoder: NewOpenAIDecoder()})
@@ -132,6 +135,12 @@ func encodeOpenAIRequest(req CompletionRequest) ([]byte, error) {
 	}
 	if tools := encodeOpenAITools(req.Context.Tools); len(tools) > 0 {
 		body["tools"] = tools
+	}
+	// A caller-supplied output cap (a bounded subagent response) travels in Extra.
+	// Only send it when asked: some OpenAI-compatible servers reject the field,
+	// and an absent cap keeps the provider's own published limit.
+	if maxTok := maxOutputTokensFor(req); maxTok > 0 {
+		body["max_tokens"] = maxTok
 	}
 	return json.Marshal(body)
 }
@@ -313,6 +322,9 @@ func (d *anthropicCompatDriver) StreamCompletion(ctx context.Context, req Comple
 		httpReq.Header.Set("Accept", "text/event-stream")
 		if d.authHeader != nil {
 			d.authHeader(httpReq, req.Config.APIKey)
+		}
+		for k, v := range req.Config.Headers {
+			httpReq.Header.Set(k, v)
 		}
 		return httpReq, nil
 	}
