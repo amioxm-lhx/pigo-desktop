@@ -1,9 +1,5 @@
-export {
-  readMainSource,
-  readMainModule,
-  readMainSourceSync,
-  readMainModuleSync,
-} from "./main-source.mjs";
+// Electron main-process source contracts were removed with the Tauri port;
+// only renderer/shared/sidecar sources are still contract-tested here.
 export {
   readStoreSource,
   readStoreModule,
@@ -22,10 +18,6 @@ export {
   readComposerSourceSync,
   readComposerModuleSync,
 } from "./composer-source.mjs";
-export {
-  readSharedTypesSource,
-  readSharedTypesSourceSync,
-} from "./shared-types-source.mjs";
 export {
   readAppSource,
   readAppSourceSync,
