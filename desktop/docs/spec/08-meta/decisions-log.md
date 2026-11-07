@@ -4981,3 +4981,24 @@ Validation contract: E2E-SIDEBAR-global-pinned-conversations.
   plugin responses. Child stderr and main-process fallbacks use stable events;
   development console mirrors contain the same sanitized record.
 - See ADR 0250 and E2E-034.
+
+## 2026-11-07 — The builtin command registry reopens under three guardrails (D421)
+
+- Decision D421 supersedes the freeze clause of D250 / ADR 0106 in part. The
+  desktop rebuilt its slash-first workflows to match the pi CLI, and the
+  registry now holds sixteen implemented commands (`btw`, `copy`, `session`,
+  `status`, `export`, `rebuild`, `goal`, `tree`, `rewind`, `memory`, `dream`
+  plus the five ADR 0106 kept). Each is backed by a real host/sidecar RPC or
+  a read of renderer state; none is a stale alias.
+- The absolute "exactly five" freeze is replaced by three guardrails: a
+  first-party command must be registered in `composer.rs` `BUILTIN_ALIASES`
+  (single source of truth), have a real implementation behind it, and be
+  documented in `04-ux/04-builtin-commands.md` with its honest desktop
+  boundary plus contract-test coverage.
+- ADR 0106's removals stay in force: abort, session deletion, project,
+  settings, plugin, log, rename, command palette, reload-window, and DevTools
+  remain out of the registry, and removed commands do not return as
+  compatibility aliases. The drift from five to sixteen happened silently;
+  this entry records why it was accepted rather than reverted.
+- See ADR 0256, `04-ux/04-builtin-commands.md`, and
+  `test/builtin-commands.test.mjs`.

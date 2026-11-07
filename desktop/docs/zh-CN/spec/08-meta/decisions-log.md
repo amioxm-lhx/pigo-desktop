@@ -4035,3 +4035,19 @@ D193 和 D194。
   不复制原始参数、输出或插件响应。子进程 stderr 和主进程回退日志使用稳定事件；
   开发控制台镜像与文件保持同一份已脱敏记录。
 - 见 ADR 0250 和 E2E-034。
+
+## 2026-11-07 —— 内置命令注册表在三条护栏下重开（D421）
+
+- 决策 D421 部分取代 D250 / ADR 0106 的冻结条款。桌面端按 pi CLI 逐批重建了
+  slash-first 工作流，注册表现在有 16 条已实现的命令（`btw`、`copy`、`session`、
+  `status`、`export`、`rebuild`、`goal`、`tree`、`rewind`、`memory`、`dream`，
+  加上 ADR 0106 保留的五条）。每条背后都有真实的 host/sidecar RPC 或渲染器
+  状态读取，没有一条是陈旧别名。
+- 绝对的「只有五条」冻结替换为三条护栏：第一方命令必须登记在 `composer.rs` 的
+  `BUILTIN_ALIASES`（单一事实来源）、有真实实现支撑，并在
+  `04-ux/04-builtin-commands.md` 里连同其桌面端诚实边界一起登记，且有契约测试覆盖。
+- ADR 0106 的移除决定继续有效：abort、删除会话、project、settings、plugin、log、
+  rename、命令面板、reload-window、DevTools 仍不进注册表，被删除的命令也不以
+  兼容别名的形式回归。从五条漂移到十六条是静默发生的；本条目记录为何接受这次
+  漂移而不是回滚它。
+- 见 ADR 0256、`04-ux/04-builtin-commands.md` 和 `test/builtin-commands.test.mjs`。

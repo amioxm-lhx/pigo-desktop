@@ -21,7 +21,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
 | [ADR 0089：主动后台子代理委托](/adr/0089-proactive-background-subagent-delegation) | 非阻塞 Task、TaskWait/TaskList/TaskStop 生命周期与权限作用域 |
 | [ADR 0090：用户可配置的关闭行为](/adr/0090-user-configurable-close-behavior-close-to-tray) | 首次关闭只问一次，关闭到托盘或退出，设置里可改 |
 | [ADR 0095：用厂商账户登录](/adr/0095-vendor-account-oauth-login) | 用订阅账户代替 API 密钥，凭据留在主进程，sidecar 按请求取短时令牌 |
-| [ADR 0106：核心五条内置命令](/adr/0106-core-five-builtin-commands) | 将命令面板和输入框 `/` 菜单冻结为五条第一方命令 |
+| [ADR 0106：核心五条内置命令](/adr/0106-core-five-builtin-commands) | 将命令面板和输入框 `/` 菜单冻结为五条第一方命令（冻结条款已被 ADR 0256 部分取代） |
 | [ADR 0108：移除内置交互式终端](/adr/0108-remove-built-in-interactive-terminal) | 工作面板不再承载 PTY；交互式 shell 由外部终端承担，Agent Bash 保持非交互式 |
 | [ADR 0128：瞬时 provider 故障的有界重试](/adr/0128-bounded-transient-provider-retry) | 为瞬时 provider 故障共享一个有界重试预算，跨请求设置和流式传输阶段共用四次重试 |
 | [ADR 0131：大段 Composer 粘贴写入会话临时目录](/adr/0131-large-text-paste-session-reference) | 超过可配置阈值的纯文本粘贴保存为会话临时文件，并在原位置插入内联 `@` 引用 |
@@ -172,7 +172,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
 | 0103 | [紧凑的上下文用量摘要](/adr/0103-compact-context-usage-summary) | 已接受（修订 ADR 0047） |
 | 0104 | [插件贡献的工作面板视图](/adr/0104-plugin-contributed-work-panel-views) | 已接受 |
 | 0105 | [将 Files 作为捆绑插件发布；Review 留在宿主](/adr/0105-files-as-a-bundled-plugin) | 已被 ADR 0241 取代 |
-| 0106 | [核心五条内置命令](/adr/0106-core-five-builtin-commands) | 已接受 |
+| 0106 | [核心五条内置命令](/adr/0106-core-five-builtin-commands) | 已被 ADR 0256 部分取代 |
 | 0107 | [让当前会话任务通知抑制原子化](/adr/0107-atomic-viewing-context-for-task-notifications) | 已接受 |
 | 0108 | [移除内置交互式终端](/adr/0108-remove-built-in-interactive-terminal) | 已接受 |
 | 0109 | [用操作系统关联应用打开 Files 条目](/adr/0109-open-files-with-the-os-associated-application) | 已接受 |
@@ -276,6 +276,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
 | 0243 | [技能市场公网 HTTPS 目录拉取](/adr/0243-skill-market-public-https-catalog) | 已接受（修订 ADR 0009；issue #287 / PR #290） |
 | 0245 | [加固 MCP 市场公网网络边界](/adr/0245-mcp-market-public-network-boundary) | 已接受 |
 | 0251 | [pi-go Go agent sidecar](/adr/0251-pi-go-agent-sidecar) | 已接受待实现 |
+| 0256 | [以护栏重开内置命令注册表](/adr/0256-reopen-builtin-command-registry) | 已接受（部分取代 ADR 0106） |
 | global-sidebar-pins | [在侧边栏全局显示置顶会话](/adr/global-sidebar-pins) | 已接受（修订 ADR 0016；issue #306） |
 | active-turn-steering | [用 Alt+Enter 向当前回合补充指令](/adr/active-turn-steering) | 已接受 |
 

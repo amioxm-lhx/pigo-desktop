@@ -126,7 +126,7 @@ Each ADR includes:
 | 0103 | Compact context usage summary | Accepted (amends 0047) |
 | 0104 | Plugin-contributed work panel views | Accepted |
 | 0105 | Ship Files as a bundled plugin; keep Review in the host | Superseded by 0241 |
-| 0106 | Keep only five core builtin commands | Accepted |
+| 0106 | [Keep only five core builtin commands](0106-core-five-builtin-commands.md) | Superseded in part by ADR 0256 |
 | 0107 | Make current-session task notification suppression atomic | Accepted |
 | 0108 | Remove the built-in interactive terminal | Accepted |
 | 0109 | Open Files entries with the OS-associated application | Accepted |
@@ -275,5 +275,6 @@ Each ADR includes:
 | 0253 | [Site sessions: a real signed-in browser instead of a forged request](0253-site-sessions-for-staff-collection.md) | Accepted for implementation |
 | 0254 | [Middle-manager boards: the rows employees file, and the one door that turns a proposal into work](0254-middle-manager-boards.md) | Accepted for implementation |
 | 0255 | [Host-owned browser chrome over a Tauri child webview](0255-tauri-browser-guest.md) | Accepted for implementation (amends 0170 for the Tauri port) |
+| 0256 | [Reopen the builtin command registry with guardrails](0256-reopen-builtin-command-registry.md) | Accepted (supersedes 0106 in part) |
 | active-turn-steering | Bind Composer steering to the active durable turn | Accepted (active-turn-steering; issue #164) |
 | active-turn-steering | Bind Composer steering to the active durable turn | Accepted (active-turn-steering; issue #164) |

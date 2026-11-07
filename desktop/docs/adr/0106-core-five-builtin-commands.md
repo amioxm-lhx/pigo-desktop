@@ -1,9 +1,16 @@
 # ADR 0106: Keep only five core builtin commands
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0256
 - Date: 2026-08-19
 - Deciders: PI-Desktop core
 - Related: D250, ADR 0024, ADR 0034, `04-ux/04-builtin-commands.md`
+
+> Superseded in part. The "exactly five IDs" freeze no longer applies: the
+> registry was rebuilt around slash-first CLI-parity workflows and now holds
+> sixteen implemented commands (ADR 0256). Retained because the reasoning
+> that motivated the cleanup still holds — dead IDs must not masquerade as
+> supported commands, and actions that own a dedicated UI surface stay out of
+> the builtin registry.
 
 ## Context
 
