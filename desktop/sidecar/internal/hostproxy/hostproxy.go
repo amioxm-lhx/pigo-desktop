@@ -22,6 +22,7 @@ var Allowed = map[string]bool{
 	"tools.abort":              true,
 	"tools.list":               true,
 	"session.get":              true,
+	"session.list":             true,
 	"session.appendMessage":    true,
 	"session.appendCompaction": true,
 	"session.replaceMessages":  true,

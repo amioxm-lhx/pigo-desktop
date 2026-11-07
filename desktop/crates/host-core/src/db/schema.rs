@@ -63,9 +63,16 @@ CREATE TABLE sessions (
   pinned      INTEGER NOT NULL DEFAULT 0,
   last_seq    INTEGER NOT NULL DEFAULT 0,
   created_at  INTEGER NOT NULL,
-  updated_at  INTEGER NOT NULL
+  updated_at  INTEGER NOT NULL,
+  -- Fork lineage (schema v22). A message-scoped fork records the session and
+  -- the message it was cut from, so the renderer can draw where a branch came
+  -- from. Both stay NULL for a root session and for every pre-v22 fork.
+  parent_session_id       TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+  forked_from_message_id  TEXT
 );
 CREATE INDEX idx_sessions_updated ON sessions(updated_at DESC);
+CREATE INDEX idx_sessions_parent ON sessions(parent_session_id)
+  WHERE parent_session_id IS NOT NULL;
 CREATE INDEX idx_sessions_project ON sessions(project_id) WHERE project_id IS NOT NULL;
 CREATE INDEX idx_sessions_deleted ON sessions(deleted_at) WHERE deleted_at IS NOT NULL;
 

@@ -1,19 +1,19 @@
-import { useRef, useState } from "react";
-import type { TFunction } from "i18next";
 import {
   restoreInlineComposerFileReferenceTokens,
   serializeComposerFileReferences,
   serializeInlineComposerFileReferences,
   stripInlineComposerFileReferenceTokens,
 } from "@pi-desktop/shared";
+import type { TFunction } from "i18next";
+import { useRef, useState } from "react";
+import { resolveComposerCommand } from "../../../../hooks/use-composer-autocomplete";
+import { api } from "../../../../lib/api";
+import { dispatchComposerCommand } from "../../../../lib/commands";
+import { draftKeyForSession } from "../../../../lib/composer-draft-cache";
+import type { ComposerDraftSnapshot } from "../../../../lib/composer-smart-stop";
 import type { AppState } from "../../../../stores/app-store";
 import { useAppStore } from "../../../../stores/app-store";
-import type { ComposerDraftSnapshot } from "../../../../lib/composer-smart-stop";
-import { api } from "../../../../lib/api";
-import { draftKeyForSession } from "../../../../lib/composer-draft-cache";
-import { runExtensionCommand, runPaletteCommand } from "../../../../lib/commands";
-import { resolveComposerCommand } from "../../../../hooks/use-composer-autocomplete";
-import { readEditorValue, setEditorCaret, type ComposerFileReference } from "../editor";
+import { type ComposerFileReference, readEditorValue, setEditorCaret } from "../editor";
 import type { ComposerDraftController } from "./useComposerDraft";
 
 type UseComposerSubmitOptions = {
@@ -211,57 +211,29 @@ export function useComposerSubmit({
       if (command && command.kind !== "template" && command.id) {
         const commandBody =
           commandEnd === -1 ? "" : serializedContent.slice(commandEnd).trim();
-        const isModeCommand =
-          command.id === "builtin.mode.agent" ||
-          command.id === "builtin.mode.plan" ||
-          command.id === "builtin.mode.goal";
-        if (isModeCommand && commandBody) {
-          try {
-            await runPaletteCommand(command.id);
-            const visibleDraft = text.trim();
-            const visibleCommandEnd = visibleDraft.search(/\s/);
-            const visibleCommandBody =
-              visibleCommandEnd === -1
-                ? ""
-                : visibleDraft.slice(visibleCommandEnd).trim();
-            const accepted = await sendPrompt(
+        const visibleDraft = text.trim();
+        const visibleCommandEnd = visibleDraft.search(/\s/);
+        const visibleCommandBody =
+          visibleCommandEnd === -1
+            ? ""
+            : visibleDraft.slice(visibleCommandEnd).trim();
+        // Dispatch is driven by the argMode/action metadata declared by the
+        // Rust builtin registry, so adding a command never adds an id branch
+        // here (and an argument-taking command cannot silently fall through
+        // into the main transcript).
+        const handled = await dispatchComposerCommand(command, {
+          body: commandBody,
+          sendPrompt: () =>
+            sendPrompt(
               serializeInlineComposerFileReferences(
                 visibleCommandBody,
                 activeFileReferences,
               ),
               draft.draftSnapshot(visibleCommandBody),
-            );
-            if (accepted) draft.clearDraftForKey(submittedDraftKey);
-          } catch (error) {
-            showToast(error instanceof Error ? error.message : String(error), {
-              variant: "error",
-            });
-          }
-          return;
-        }
-        if (command.kind === "extension") {
-          try {
-            await runExtensionCommand(command.name, commandBody);
-            draft.clearDraftForKey(submittedDraftKey);
-          } catch (error) {
-            showToast(error instanceof Error ? error.message : String(error), {
-              variant: "error",
-            });
-          }
-          return;
-        }
-        if (!commandBody) {
-          try {
-            if (command.kind === "builtin") await runPaletteCommand(command.id);
-            else await api.executeCommand(command.id);
-            draft.clearDraftForKey(submittedDraftKey);
-          } catch (error) {
-            showToast(error instanceof Error ? error.message : String(error), {
-              variant: "error",
-            });
-          }
-          return;
-        }
+            ),
+          clearDraft: () => draft.clearDraftForKey(submittedDraftKey),
+        });
+        if (handled) return;
       }
     }
     if (!steering && !modelReady) {

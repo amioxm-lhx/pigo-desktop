@@ -235,6 +235,8 @@ pub async fn route(
 
         // ── agent turn lifecycle ──────────────────────────────────────────
         "pi-desktop/agent/prompt" => agent_prompt(&app, state, &params).await,
+        "pi-desktop/agent/btw" => agent_btw(state, &params).await,
+        "pi-desktop/agent/dream" => agent_dream(state, &params).await,
         "pi-desktop/agent/executeApprovedPlan" => {
             agent_execute_approved_plan(&app, state, &params).await
         }
@@ -1318,6 +1320,40 @@ pub async fn route(
                 Err(e) => err("INTERNAL", e.to_string()),
             }
         }
+        "pi-desktop/session/export" => {
+            // CLI /export parity. host-core's own transcript JSONL is not
+            // readable by the CLI, so translate the `session.get` detail into
+            // pigo's header + entry-wire lines before the save dialog.
+            let Some(session_id) = params.get("sessionId").and_then(Value::as_str) else {
+                return err("INVALID_ARGUMENT", "sessionId required");
+            };
+            let detail = match state
+                .host
+                .call("session.get", json!({ "id": session_id }))
+                .await
+            {
+                Ok(detail) => detail,
+                Err(e) => return envelope::envelope_from_rpc("host", &e),
+            };
+            let session = detail.get("session").cloned().unwrap_or(Value::Null);
+            let (body, messages) = match crate::session_export::export_body(&session) {
+                Ok(result) => result,
+                Err(message) => return err("INVALID_ARGUMENT", message),
+            };
+            let file_name = crate::session_export::suggested_file_name(&session);
+            let Some(target) = native::save_file(&app, &file_name) else {
+                return ok(json!({ "saved": false }));
+            };
+            match std::fs::write(&target, &body) {
+                Ok(()) => ok(json!({
+                    "saved": true,
+                    "path": target.to_string_lossy(),
+                    "bytes": body.len(),
+                    "messages": messages,
+                })),
+                Err(e) => err("INTERNAL", e.to_string()),
+            }
+        }
 
         // ── desktop MCP surfaces and market search ────────────────────────
         "pi-desktop/mcp/test" => crate::mcp::test(state, &params).await,
@@ -1758,6 +1794,108 @@ async fn session_summarize_title(state: &std::sync::Arc<AppState>, params: &Valu
     envelope_result(
         "sidecar",
         state.sidecar.call("session.summarizeTitle", prompt).await,
+    )
+}
+
+/// `agent/btw` — answer one out-of-band /btw question without touching the
+/// durable session. Only the launch binding is resolved; unlike agent/prompt
+/// there is no `session.beginTurn`, no user row and no `session.appendMessage`.
+/// The sidecar re-reads the transcript itself and streams scoped events that
+/// the renderer shows in a temporary panel.
+async fn agent_btw(state: &std::sync::Arc<AppState>, params: &Value) -> Value {
+    let Some(session_id) = params.get("sessionId").and_then(|v| v.as_str()) else {
+        return err("INVALID_ARGUMENT", "sessionId required");
+    };
+    let Some(question) = params.get("question").and_then(|v| v.as_str()) else {
+        return err("INVALID_ARGUMENT", "question required");
+    };
+    let session_id = session_id.to_string();
+    let settings = match state.host.call("settings.get", json!({})).await {
+        Ok(s) => s,
+        Err(e) => return envelope::envelope_from_rpc("host", &e),
+    };
+    let session = match state
+        .host
+        .call(
+            "session.get",
+            json!({ "id": session_id, "messageLimit": 1 }),
+        )
+        .await
+    {
+        Ok(s) => s.get("session").cloned().unwrap_or(Value::Null),
+        Err(e) => return envelope::envelope_from_rpc("host", &e),
+    };
+    let launch = match launch::resolve_launch(state, &session, &settings, params).await {
+        Ok(l) => l,
+        Err(envelope) => return envelope,
+    };
+    let mut binding = launch.sidecar_params.clone();
+    binding["sessionId"] = json!(session_id);
+    // A side question is not a turn: leave the turn/content slots empty so the
+    // sidecar never mistakes the binding for a main prompt.
+    binding["turnId"] = json!("");
+    binding["content"] = json!("");
+    binding["userMessageId"] = json!("");
+    let request = json!({
+        "sessionId": session_id,
+        "sideId": params.get("sideId").and_then(Value::as_str).unwrap_or(""),
+        "question": question,
+        "binding": binding,
+    });
+    envelope_result("sidecar", state.sidecar.call("agent.btw", request).await)
+}
+
+/// `agent/dream` — run one /dream memory-consolidation pass.
+///
+/// The pass takes minutes (several model calls), so it uses a longer deadline
+/// than an ordinary sidecar call. It is not a turn: no host turn is opened, no
+/// transcript row is appended, and the session's live AgentContext is untouched.
+/// The sidecar answers once the pass finished, with the pigo Report verbatim.
+async fn agent_dream(state: &std::sync::Arc<AppState>, params: &Value) -> Value {
+    const DREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
+    let Some(session_id) = params.get("sessionId").and_then(|v| v.as_str()) else {
+        return err("INVALID_ARGUMENT", "sessionId required");
+    };
+    if session_id.is_empty() {
+        return err("INVALID_ARGUMENT", "sessionId required");
+    }
+    let session_id = session_id.to_string();
+    let settings = match state.host.call("settings.get", json!({})).await {
+        Ok(s) => s,
+        Err(e) => return envelope::envelope_from_rpc("host", &e),
+    };
+    let session = match state
+        .host
+        .call(
+            "session.get",
+            json!({ "id": session_id, "messageLimit": 1 }),
+        )
+        .await
+    {
+        Ok(s) => s.get("session").cloned().unwrap_or(Value::Null),
+        Err(e) => return envelope::envelope_from_rpc("host", &e),
+    };
+    let launch = match launch::resolve_launch(state, &session, &settings, params).await {
+        Ok(l) => l,
+        Err(envelope) => return envelope,
+    };
+    let mut request = launch.sidecar_params.clone();
+    request["sessionId"] = json!(session_id);
+    // A consolidation pass is not a turn: clear the turn slots so the sidecar
+    // never mistakes the binding for a prompt.
+    request["turnId"] = json!("");
+    request["content"] = json!("");
+    request["userMessageId"] = json!("");
+    request["dryRun"] = json!(params
+        .get("dryRun")
+        .and_then(Value::as_bool)
+        .unwrap_or(false));
+    envelope_result(
+        "sidecar",
+        state
+            .sidecar
+            .call_timeout("agent.dream", request, DREAM_TIMEOUT)
+            .await,
     )
 }
 

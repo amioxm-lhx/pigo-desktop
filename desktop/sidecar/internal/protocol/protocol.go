@@ -17,12 +17,27 @@ const (
 	MethodAgentStop           = "agent.stop"
 	MethodAgentGetStatus      = "agent.getStatus"
 	MethodAgentDisposeSession = "agent.disposeSession"
-	MethodAgentExecutePlan    = "agent.executeApprovedPlan"
-	MethodAgentCompact        = "agent.compact"
-	MethodAskToolResolve      = "asktool.resolve"
-	MethodPromptEnhance       = "prompt.enhance"
-	MethodSessionTitle        = "session.summarizeTitle"
-	MethodPluginComplete      = "plugin.complete"
+	// MethodAgentRebuild drops a live runtime and rebuilds its model context
+	// from the host transcript without opening a turn. It is the desktop
+	// counterpart of the CLI's /rebuild.
+	MethodAgentRebuild     = "agent.rebuild"
+	MethodAgentExecutePlan = "agent.executeApprovedPlan"
+	MethodAgentCompact     = "agent.compact"
+	// MethodAgentBtw answers an out-of-band question against a read-only
+	// snapshot of the main transcript. It never creates a Session, appends a
+	// durable row, or opens a host turn.
+	MethodAgentBtw       = "agent.btw"
+	MethodAgentBtwCancel = "agent.btwCancel"
+	MethodAskToolResolve = "asktool.resolve"
+	MethodPromptEnhance  = "prompt.enhance"
+	MethodSessionTitle   = "session.summarizeTitle"
+	MethodPluginComplete = "plugin.complete"
+	// MethodMemoryReport answers /memory: the persistent-memory store state and
+	// per-scope entry counts. It never writes the transcript.
+	MethodMemoryReport = "memory.report"
+	// MethodAgentDream runs one memory-consolidation pass (/dream) with the
+	// session's own model. It is the desktop counterpart of `pigo --dream`.
+	MethodAgentDream = "agent.dream"
 )
 
 // Outbound methods: the sidecar calls Electron main.
@@ -62,6 +77,22 @@ type SessionParams struct {
 // StopResult is the {requested:boolean} reply agent.stop returns.
 type StopResult struct {
 	Requested bool `json:"requested"`
+}
+
+// BtwParams is the agent.btw payload. Binding is the shell-resolved launch
+// descriptor (provider/model/instructions) for the session; it carries no
+// turn id because a side question never opens a durable turn. The answer is
+// streamed as scoped agent.event notifications, not stored in the transcript.
+type BtwParams struct {
+	SessionID string       `json:"sessionId"`
+	SideID    string       `json:"sideId,omitempty"`
+	Question  string       `json:"question"`
+	Binding   PromptParams `json:"binding"`
+}
+
+// BtwCancelParams is the agent.btwCancel payload.
+type BtwCancelParams struct {
+	SideID string `json:"sideId"`
 }
 
 // PromptAttachment is one file the renderer attached to a turn. Only inlined
@@ -278,6 +309,39 @@ type AgentStatusResult struct {
 // OKResult is the {ok:true} reply several methods share.
 type OKResult struct {
 	OK bool `json:"ok"`
+}
+
+// RebuildResult reports whether a live runtime was actually replaced. A
+// session with no live runtime needs no rebuild: its next prompt builds one
+// from the host transcript anyway.
+type RebuildResult struct {
+	OK      bool `json:"ok"`
+	Rebuilt bool `json:"rebuilt"`
+}
+
+// MemoryReportParams is the memory.report payload. Root overrides the resolved
+// memory root; production leaves it empty so the sidecar applies the CLI's own
+// resolution ($PIGO_HOME/memory, else ~/.pigo/memory).
+type MemoryReportParams struct {
+	Root string `json:"root,omitempty"`
+}
+
+// DreamParams is the agent.dream payload: the session's launch binding (so the
+// pass consolidates with the model the user is talking to) plus the project
+// scope and the dry-run switch.
+type DreamParams struct {
+	// PromptParams carries the resolved ProviderConfig; only Provider,
+	// ThinkingLevel and ProjectPath are read.
+	PromptParams
+	SessionID string `json:"sessionId"`
+	DryRun    bool   `json:"dryRun,omitempty"`
+}
+
+// DreamResult is the agent.dream reply. The report keeps the CLI's field names
+// (snake_case) so a desktop run and `pigo --dream` produce the same JSON.
+type DreamResult struct {
+	OK     bool            `json:"ok"`
+	Report json.RawMessage `json:"report"`
 }
 
 // ProviderConfig mirrors RuntimeProviderConfig in the desktop sidecar. Electron

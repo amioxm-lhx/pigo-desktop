@@ -76,6 +76,13 @@ pub fn dispatch(
 
 async fn handle_agent_event(app: &tauri::AppHandle, state: &Arc<AppState>, envelope: Value) {
     let _ = app.emit("pi-desktop/agent/event/message", envelope.clone());
+    // Side-thread (/btw) answers are renderer-only. They were forwarded above,
+    // but must not be persisted, attributed to the session's turn lifecycle,
+    // or replayed to staff/plugins — every one of those paths would write the
+    // answer into the main conversation.
+    if envelope.get("scope").and_then(|v| v.as_str()) == Some("side") {
+        return;
+    }
     // Staff step turns await their own events through the resident driver.
     // Terminal events are handed over only after the turn is settled below:
     // the next step's beginTurn would otherwise race session.endTurn and be

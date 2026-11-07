@@ -15,6 +15,8 @@ import type {
   PromptEnhancementResponse,
   SessionSummarizeTitleRequest,
   SessionSummarizeTitleResponse,
+  DreamReport,
+  MemoryStoreReport,
   AgentStopResponse,
   AgentQueueChangedEvent,
   AgentQueuePushRequest,
@@ -470,6 +472,17 @@ export const api = {
     invoke<{ sessions: ImportCandidate[] }>(IPC.invoke.sessionImportScan),
   runImportSessions: (items: ImportCandidate[]) =>
     invoke<ImportRunResult>(IPC.invoke.sessionImportRun, items),
+  /**
+   * CLI /export parity: the host writes the session as pigo-compatible JSONL
+   * through its own save dialog, so the renderer only supplies the session id.
+   */
+  exportSession: (sessionId: string) =>
+    invoke<{
+      saved: boolean;
+      path?: string;
+      bytes?: number;
+      messages?: number;
+    }>(IPC.invoke.sessionExport, { sessionId }),
   scanImportModelConfigs: () =>
     invoke<{ providers: ModelConfigImportCandidate[] }>(
       IPC.invoke.modelConfigImportScan,
@@ -883,6 +896,26 @@ export const api = {
     invoke(IPC.invoke.agentQueuePrioritize, { turnId }),
   getStatus: (sessionId: string) =>
     invoke<{ status: AgentStatus }>(IPC.invoke.agentGetStatus, sessionId),
+  /** CLI /rebuild parity: discard and reload the live runtime's context. */
+  rebuildSession: (sessionId: string) =>
+    invoke<{ ok: boolean; rebuilt: boolean }>(IPC.invoke.agentRebuild, {
+      sessionId,
+    }),
+  /**
+   * CLI /memory parity: the persistent-memory store state and per-scope counts.
+   * Read-only — the sidecar reconciles the on-disk files into the index first.
+   */
+  reportMemory: () =>
+    invoke<MemoryStoreReport>(IPC.invoke.memoryReport, {}),
+  /**
+   * CLI /dream parity: one memory-consolidation pass with the session's own
+   * model. Slow (several model calls); the caller shows a busy state.
+   */
+  runDream: (sessionId: string, dryRun = false) =>
+    invoke<{ ok: boolean; report: DreamReport }>(IPC.invoke.agentDream, {
+      sessionId,
+      dryRun,
+    }),
   getAgentInstructions: (projectPath?: string) =>
     invoke<{ global: AgentInstructionFile; project?: AgentInstructionFile }>(
       IPC.invoke.agentInstructionsGet,
@@ -902,6 +935,11 @@ export const api = {
     invoke(IPC.invoke.toolResolvePermission, resolution),
   resolveAskTool: (resolution: AskToolResolution) =>
     invoke(IPC.invoke.askToolResolve, resolution),
+  /** Ask one out-of-band /btw question; the answer arrives as scoped events. */
+  btw: (input: { sessionId: string; sideId: string; question: string }) =>
+    invoke<{ accepted: boolean; sideId: string }>(IPC.invoke.agentBtw, input),
+  btwCancel: (sideId: string) =>
+    invoke<{ cancelled: boolean }>(IPC.invoke.agentBtwCancel, { sideId }),
   pendingPlans: (sessionId?: string) =>
     invoke<PlansPendingResult>(
       IPC.invoke.plansPending,

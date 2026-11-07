@@ -180,6 +180,9 @@ import { createTranscriptSlice } from "./slices/transcript-slice";
 import { createProjectSlice } from "./slices/project-slice";
 import { createCatalogSlice } from "./slices/catalog-slice";
 import { createEventsSlice } from "./slices/events-slice";
+import { createBtwSlice } from "./slices/btw-slice";
+import { createInfoSlice } from "./slices/info-slice";
+import { createTreeSlice } from "./slices/tree-slice";
 import { createInteractionSlice } from "./slices/interaction-slice";
 import {
   createCatalogRuntime,
@@ -520,6 +523,12 @@ export const useAppStore = create<AppState>((set, get) => {
     assistantErrorMessage,
     withCompactionMark,
   }),
+
+  ...createBtwSlice({ get, set }),
+
+  ...createInfoSlice({ get, set }),
+
+  ...createTreeSlice({ get, set }),
 
   ...createInteractionSlice({
     get,

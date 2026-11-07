@@ -150,6 +150,13 @@ export function createEventsSlice({
     },
 
     handleAgentEvent: (envelope) => {
+      // /btw answers are scoped, renderer-only events. Divert them before any
+      // transcript, batching or turn-lifecycle handling: a side answer must
+      // never add a row, end the main run or trigger auto-title/refresh.
+      if (envelope.scope === "side") {
+        get().handleBtwEvent(envelope);
+        return;
+      }
       const event = envelope.event;
       if (event.type === "agent_end" || event.type === "error") {
         runtime.submittedComposerDrafts.delete(envelope.sessionId);

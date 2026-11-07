@@ -179,6 +179,7 @@ impl Database {
             18 => {}
             19 => {}
             20 => {}
+            21 => {}
             legacy @ 1..=6 => {
                 let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                 drop(conn);
@@ -222,10 +223,17 @@ impl Database {
             migrated_version = 20;
         }
         // And the managers on top of them: a v20 database has the boards but
-        // not the rank that reads them.
-        if migrated_version < SCHEMA_VERSION {
+        // not the rank that reads them. This step stamps v21, so it must stop
+        // at 21 rather than at the newest version, or a v21 database would be
+        // pushed through it again (its backup is labelled v20).
+        if migrated_version < 21 {
             crate::staff::migrate_managers(&conn, path)?;
         }
+        // v21 -> v22 adds fork lineage to `sessions`. Checked by column
+        // presence rather than version, because the staff steps above stamp the
+        // newest version on commit and can leave a database labelled v22
+        // without the columns.
+        super::migrations::migrate_session_lineage(&conn, path)?;
         let db = Self { conn, data_dir };
         db.boot_maintenance()?;
         crate::session_collaboration::recover(&db)?;

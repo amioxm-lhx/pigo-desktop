@@ -192,7 +192,15 @@ pub const PROXY_HOST: &[(&str, &str)] = &[
 pub const PROXY_SIDECAR: &[(&str, &str)] = &[
     ("pi-desktop/agent/stop", "agent.stop"),
     ("pi-desktop/agent/getStatus", "agent.getStatus"),
+    // /rebuild: pure forward, the sidecar owns the live runtime registry.
+    ("pi-desktop/agent/rebuild", "agent.rebuild"),
+    // /memory: pure forward. Reading the persistent-memory index needs no shell
+    // state; the sidecar owns the store path resolution.
+    ("pi-desktop/memory/report", "memory.report"),
     ("pi-desktop/agent/askTool/resolve", "asktool.resolve"),
+    // `agent.btw` is a wrapped channel (it needs the resolved launch binding);
+    // only its cancel is a verbatim forward.
+    ("pi-desktop/agent/btwCancel", "agent.btwCancel"),
 ];
 
 /// Methods the sidecar may ask us to forward to host-core via `host.proxy`
@@ -204,6 +212,7 @@ pub const HOST_PROXY_ALLOWED: &[&str] = &[
     "tools.abort",
     "tools.list",
     "session.get",
+    "session.list",
     "session.appendMessage",
     "session.appendCompaction",
     "session.replaceMessages",

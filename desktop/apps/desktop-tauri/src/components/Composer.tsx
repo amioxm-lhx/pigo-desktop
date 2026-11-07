@@ -34,6 +34,9 @@ import {
 } from "../hooks/use-composer-autocomplete";
 import { ComposerAutocomplete } from "./ComposerAutocomplete";
 import { AskToolCard } from "./AskToolCard";
+import { SideThreadPanel } from "./SideThreadPanel";
+import { SessionInfoPanel } from "./SessionInfoPanel";
+import { SessionTreePanel } from "./SessionTreePanel";
 import { PlanApprovalBar } from "./PlanApprovalBar";
 import {
   COMPOSER_MAX_VISIBLE_ROWS,
@@ -486,6 +489,9 @@ export function Composer({
       className={`composer-dock composer-dock-${variant}`}
     >
       <div className="composer-stack">
+        <SideThreadPanel />
+        <SessionInfoPanel />
+        <SessionTreePanel />
         {planCheckpoint?.status === "pending" ? (
           <PlanApprovalBar proposal={planCheckpoint} />
         ) : null}

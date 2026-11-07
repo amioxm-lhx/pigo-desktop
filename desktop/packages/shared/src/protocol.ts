@@ -76,11 +76,17 @@ export const IPC = {
     agentCompact: "pi-desktop/agent/compact",
     agentAbort: "pi-desktop/agent/abort",
     agentStop: "pi-desktop/agent/stop",
+    /** Out-of-band /btw question; wrapped to resolve the launch binding. */
+    agentBtw: "pi-desktop/agent/btw",
+    /** Cancel one in-flight /btw answer. Pure sidecar forward. */
+    agentBtwCancel: "pi-desktop/agent/btwCancel",
     agentQueuePush: "pi-desktop/agent/queue/push",
     agentQueueList: "pi-desktop/agent/queue/list",
     agentQueueRemove: "pi-desktop/agent/queue/remove",
     agentQueuePrioritize: "pi-desktop/agent/queue/prioritize",
     agentGetStatus: "pi-desktop/agent/getStatus",
+    /** Drop and immediately reload the live runtime's model context. */
+    agentRebuild: "pi-desktop/agent/rebuild",
     agentInstructionsGet: "pi-desktop/agent/instructions/get",
     agentInstructionsSave: "pi-desktop/agent/instructions/save",
     sessionList: "pi-desktop/session/list",
@@ -97,6 +103,15 @@ export const IPC = {
     sessionConfigure: "pi-desktop/session/configure",
     sessionImportScan: "pi-desktop/session/importScan",
     sessionImportRun: "pi-desktop/session/importRun",
+    /** Export one session as pigo-compatible JSONL through a save dialog. */
+    sessionExport: "pi-desktop/session/export",
+    /** Persistent-memory store report for /memory (read-only). */
+    memoryReport: "pi-desktop/memory/report",
+    /**
+     * Run one /dream memory-consolidation pass. The shell resolves the session's
+     * launch binding, so the pass uses the model the user is talking to.
+     */
+    agentDream: "pi-desktop/agent/dream",
     modelConfigImportScan: "pi-desktop/modelConfig/importScan",
     modelConfigImportRun: "pi-desktop/modelConfig/importRun",
     sessionReplaceMessages: "pi-desktop/session/replaceMessages",

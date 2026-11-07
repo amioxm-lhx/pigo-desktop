@@ -748,3 +748,60 @@ pub(crate) fn migrate_v14_to_v15(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let name: String = row.get(1)?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// v21 -> v22: record where a forked session came from.
+///
+/// A message-scoped fork already knows its source session and cut point in
+/// memory; without these columns that knowledge dies with the request and the
+/// renderer can only list branches as unrelated sessions. Both columns are
+/// nullable, so every earlier session simply reads as a root.
+///
+/// This step is idempotent **by column presence**, not by version number: the
+/// staff steps that follow the v15 chain stamp the newest `SCHEMA_VERSION` when
+/// they commit, so a database can reach this point already labelled v22 while
+/// still missing the columns.
+pub(crate) fn migrate_session_lineage(conn: &Connection, path: &Path) -> Result<()> {
+    let has_parent = has_column(conn, "sessions", "parent_session_id")?;
+    let has_message = has_column(conn, "sessions", "forked_from_message_id")?;
+    if has_parent && has_message {
+        return Ok(());
+    }
+    // Back up under the version the file actually reports: this step can run on
+    // a database the staff chain already stamped ahead of the columns.
+    let current: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let backup = create_migration_backup(conn, path, current)?;
+    let tx = conn.unchecked_transaction()?;
+    if !has_parent {
+        tx.execute_batch(
+            "ALTER TABLE sessions ADD COLUMN parent_session_id TEXT
+                 REFERENCES sessions(id) ON DELETE SET NULL;",
+        )?;
+    }
+    if !has_message {
+        tx.execute_batch("ALTER TABLE sessions ADD COLUMN forked_from_message_id TEXT;")?;
+    }
+    tx.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id)
+           WHERE parent_session_id IS NOT NULL;",
+    )?;
+    tx.pragma_update(None, "user_version", crate::db::SCHEMA_VERSION)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v21 to v22 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

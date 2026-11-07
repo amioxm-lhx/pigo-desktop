@@ -3,6 +3,12 @@
 > Scope: MVP acceptance scenarios plus current shipped product increments for PI-Desktop
 > Status: Accepted (protocol/Electron automation is active; full desktop Playwright remains planned)
 > Cross-references: [acceptance-criteria](02-acceptance-criteria.md) · [milestones](01-mvp-milestones.md) · [ai-development-workflow](03-ai-development-workflow.md) · [change-checklist](05-change-checklist.md)
+>
+> Note (2026-11-07): the Electron main-process source-contract suite was removed
+> after the Tauri port, together with the legacy release/build assertions. Test
+> file names in the scenario catalog below are historical verification evidence,
+> not live tests. The current suite is `node --test test/*.test.mjs` in
+> `apps/desktop-tauri` (848 assertions, all passing).
 
 ---
 

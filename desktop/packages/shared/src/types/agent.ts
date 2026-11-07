@@ -1,11 +1,10 @@
 /** Shared public types grouped by the owning application domain. */
 import type { AppError } from "../errors.js";
-import type { PlanExecution, PlanningStateEvent } from "./plans.js";
-import type { ContextCompactionFallback, ContextCompactionMark, ContextCompactionReason } from "./sessions.js";
-import type { AgentStatus } from "./sessions.js";
 import type { MessageUsage, ToolTokenUsage, UiMessage } from "./messages.js";
-import type { PermissionDecision, Risk } from "./permissions.js";
 import type { ThinkingLevel } from "./models.js";
+import type { PermissionDecision, Risk } from "./permissions.js";
+import type { PlanExecution, PlanningStateEvent } from "./plans.js";
+import type { AgentStatus, ContextCompactionFallback, ContextCompactionMark, ContextCompactionReason } from "./sessions.js";
 
 export type AgentPromptRequest = {
   sessionId: string;
@@ -270,4 +269,32 @@ export type AgentEventEnvelope = {
   parentToolCallId?: string;
   /** Definition name of the emitting subagent. */
   agentName?: string;
+  /**
+   * "side" marks a /btw answer. These envelopes are renderer-only: they are
+   * never persisted and never drive the session's turn lifecycle. Empty means
+   * the normal main-transcript scope.
+   */
+  scope?: "side";
+  /** Side thread identity for scoped events. */
+  sideId?: string;
 };
+
+/**
+ * Renderer-only /btw events. Kept out of the AgentEvent union on purpose: the
+ * app store diverts scoped envelopes before the transcript event switch, so no
+ * exhaustive event handler has to learn about them.
+ */
+export type BtwEvent =
+  | {
+      type: "btw_start";
+      sideId: string;
+      question: string;
+      modelId?: string;
+    }
+  | { type: "btw_delta"; sideId: string; text: string; reset?: boolean }
+  | { type: "btw_end"; sideId: string; text: string; aborted?: boolean }
+  | {
+      type: "btw_error";
+      sideId: string;
+      error: { code: string; message: string };
+    };

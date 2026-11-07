@@ -43,8 +43,23 @@ import type {
 } from "../lib/composer-smart-stop";
 import type { SidebarSessionOutcome } from "../lib/sidebar-session-status";
 import type { WorkPanelContext, WorkPanelTab } from "../lib/work-panel-tabs";
+import type {
+  RewindPoint,
+  SessionForestNode,
+  SessionTreeNode,
+} from "../lib/session-tree";
 
 export type { WorkPanelTab } from "../lib/work-panel-tabs";
+
+/** Snapshot rendered by the /tree and /rewind composer-dock panel. */
+export type SessionTreeView = {
+  view: "tree" | "rewind";
+  sessionId: string;
+  nodes: SessionTreeNode[];
+  points: RewindPoint[];
+  /** Fork lineage across all sessions, rooted at the oldest ancestors. */
+  forest: SessionForestNode[];
+};
 
 export type ToastVariant = "info" | "success" | "warning" | "error";
 
@@ -68,6 +83,28 @@ export type AgentTurnResult = {
   finishedAt: number;
   errorCode?: string;
 };
+
+/**
+ * One /btw side thread. Renderer-only state: the answer is streamed through
+ * scoped agent.event notifications and is never written to the host database
+ * or merged into the main transcript.
+ */
+export type BtwThread = {
+  sideId: string;
+  sessionId: string;
+  question: string;
+  answer: string;
+  running: boolean;
+  aborted?: boolean;
+  error?: string;
+};
+
+/**
+ * Which composer-dock report opened it: `/session`, `/status`, or `/memory`.
+ * Unlike the first two, the memory report asks the sidecar for the
+ * persistent-memory index, which the renderer cannot read itself.
+ */
+export type InfoPanelKind = "session" | "status" | "memory";
 
 export type PendingPlanRefreshResult = "pending" | "terminal" | "unavailable";
 
@@ -197,6 +234,8 @@ export type AppState = {
   newSession: (options?: { projectPath?: string | null }) => Promise<void>;
   forkSession: (id: string) => Promise<void>;
   forkAssistantMessage: (messageId: string) => Promise<void>;
+  /** Fork the active session through an arbitrary node (desktop `/tree <n>`). */
+  branchFromMessage: (messageId: string) => Promise<boolean>;
   configureActiveSession: (config: {
     mode: Mode;
     providerId?: string;
@@ -303,6 +342,22 @@ export type AppState = {
   refreshPlanCheckpoints: () => Promise<void>;
   handleAgentEvent: (envelope: AgentEventEnvelope) => void;
   handlePlansChanged: (event: PlanningStateEvent) => void;
+  /** Renderer-only /btw side thread shown in a composer dock card. */
+  btwThread: BtwThread | null;
+  /** Start one out-of-band question against the current session. */
+  openBtw: (question: string) => Promise<void>;
+  /** Discard the side thread and cancel its in-flight answer. */
+  closeBtw: () => void;
+  /** Consume one scoped (side) agent.event envelope. */
+  handleBtwEvent: (envelope: AgentEventEnvelope) => void;
+  /** Renderer-only /session and /status report card in the composer dock. */
+  infoPanel: InfoPanelKind | null;
+  openInfoPanel: (kind: InfoPanelKind) => void;
+  closeInfoPanel: () => void;
+  /** `/tree` node list and `/rewind` restore points, built on demand. */
+  treePanel: SessionTreeView | null;
+  openTreePanel: (data: SessionTreeView) => void;
+  closeTreePanel: () => void;
   setPage: (page: AppState["page"], opts?: { record?: boolean }) => void;
   setSettingsTab: (tab: AppState["settingsTab"]) => void;
   setSettingsAnchor: (key: string | null) => void;

@@ -246,7 +246,7 @@ describe("theme assets", () => {
 describe("the example theme shape", () => {
   it("loads a sheet whose header comment explains the @import ban", () => {
     // The wording `examples/plugins/hello/themes/midnight.css` ships with;
-    // `plugin-themes.test.mjs` runs the shipped file itself through this code.
+    // this test feeds the same shape through the sanitizer.
     const css = `/*
   Theme contributed by the Hello example plugin.
 

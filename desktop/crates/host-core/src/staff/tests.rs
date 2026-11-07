@@ -579,7 +579,7 @@ fn migration_from_v16_adds_the_staff_tables_and_keeps_every_existing_row() {
             .unwrap(),
         SCHEMA_VERSION
     );
-    assert_eq!(SCHEMA_VERSION, 21);
+    assert_eq!(SCHEMA_VERSION, 22);
     for table in [
         "credential_profiles",
         "employees",

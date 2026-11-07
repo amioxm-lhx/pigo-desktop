@@ -14,6 +14,13 @@ type EventEnvelope struct {
 	// keep subagent-internal events out of the parent's turn lifecycle.
 	ParentToolCallID string `json:"parentToolCallId,omitempty"`
 	AgentName        string `json:"agentName,omitempty"`
+	// Scope marks events that do not belong to the durable session transcript.
+	// "side" is a /btw answer: the shell must forward it to the renderer but
+	// never persist it, drive the turn lifecycle, or replay it to extensions.
+	// Empty means the normal (main transcript) scope.
+	Scope string `json:"scope,omitempty"`
+	// SideID identifies the side thread an out-of-band answer belongs to.
+	SideID string `json:"sideId,omitempty"`
 }
 
 // Event payload shapes. Each concrete event carries its own "type"
@@ -38,7 +45,45 @@ const (
 
 	TypeCompactionStart = "compaction_start"
 	TypeCompactionEnd   = "compaction_end"
+
+	// Side-thread (/btw) events. These are renderer-only: they carry their own
+	// text payload so the main transcript's message_* handling never sees them.
+	TypeBtwStart = "btw_start"
+	TypeBtwDelta = "btw_delta"
+	TypeBtwEnd   = "btw_end"
+	TypeBtwError = "btw_error"
 )
+
+// BtwStartEvent opens one out-of-band answer.
+type BtwStartEvent struct {
+	Type     string `json:"type"`
+	SideID   string `json:"sideId"`
+	Question string `json:"question"`
+	ModelID  string `json:"modelId,omitempty"`
+}
+
+// BtwDeltaEvent appends text to the in-flight side answer.
+type BtwDeltaEvent struct {
+	Type   string `json:"type"`
+	SideID string `json:"sideId"`
+	Text   string `json:"text"`
+	Reset  bool   `json:"reset,omitempty"`
+}
+
+// BtwEndEvent closes one side answer with its full text.
+type BtwEndEvent struct {
+	Type    string `json:"type"`
+	SideID  string `json:"sideId"`
+	Text    string `json:"text"`
+	Aborted bool   `json:"aborted,omitempty"`
+}
+
+// BtwErrorEvent reports a failed side answer.
+type BtwErrorEvent struct {
+	Type   string   `json:"type"`
+	SideID string   `json:"sideId"`
+	Error  AppError `json:"error"`
+}
 
 // AgentStartEvent opens one agent run.
 type AgentStartEvent struct {

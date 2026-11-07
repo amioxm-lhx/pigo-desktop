@@ -5,13 +5,13 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-const [composer, composerStyles, english, chinese, builtinCommands] =
+const [composer, composerStyles, english, chinese, builtinAliases] =
   await Promise.all([
     readComposerSource(),
     read("../src/styles/composer.css"),
     read("../../../packages/i18n/src/locales/en/index.ts"),
     read("../../../packages/i18n/src/locales/zh-CN/index.ts"),
-    read("../electron/main/builtin-commands.ts"),
+    read("../src-tauri/src/composer.rs"),
   ]);
 
 test("composer keeps placeholder guidance stable within a page and session", () => {
@@ -46,7 +46,22 @@ test("both shipped locales provide welcome, command, file, and shortcut guidance
 });
 
 test("the slash hint keeps the core session command aliases available", () => {
-  for (const alias of ["new", "compact", "agent-mode", "plan-mode", "goal-mode"]) {
-    assert.match(builtinCommands, new RegExp(`slash: "${alias}"`), alias);
+  for (const alias of [
+    "new",
+    "btw",
+    "compact",
+    "copy",
+    "session",
+    "status",
+    "agent-mode",
+    "plan-mode",
+    "goal-mode",
+    "export",
+    "rebuild",
+    "goal",
+    "tree",
+    "rewind",
+  ]) {
+    assert.match(builtinAliases, new RegExp(`name: "${alias}"`), alias);
   }
 });

@@ -1,4 +1,4 @@
-//! Composer "/" menu sources (D123/D405): the five builtin aliases, slash
+//! Composer "/" menu sources (D123/D405): the builtin aliases, slash
 //! templates from the workspace and the user's pi home, plugin commands, and
 //! the skills active for the current project, merged into the single
 //! `{ name, kind, title, … }` list the renderer filters locally.
@@ -15,31 +15,130 @@ use serde_json::{json, Value};
 use crate::state::AppState;
 use crate::subagents::{as_scalar, split_frontmatter};
 
-/// `(alias, palette id, title)`. The aliases are the composer surface of the
-/// five first-party commands; dispatch reuses the palette switch.
-const BUILTIN_ALIASES: &[(&str, &str, &str)] = &[
-    ("new", "builtin.session.new", "New Task"),
-    (
-        "compact",
-        "builtin.agent.compact",
-        "Compact Conversation Context",
-    ),
-    ("agent-mode", "builtin.mode.agent", "Switch to Agent"),
-    ("plan-mode", "builtin.mode.plan", "Switch to Plan"),
-    ("goal-mode", "builtin.mode.goal", "Switch to Goal"),
+/// One first-party composer alias. `arg_mode` is the renderer's dispatch
+/// contract: `"none"` goes straight through the palette switch, `"optional"`
+/// may carry a prompt argument, and `"required"` refuses to run without one.
+/// Declaring it here keeps the renderer from hard-coding per-command id
+/// branches every time a builtin is added.
+#[derive(Clone, Copy)]
+struct BuiltinAlias {
+    name: &'static str,
+    id: &'static str,
+    title: &'static str,
+    arg_mode: &'static str,
+}
+
+const BUILTIN_ALIASES: &[BuiltinAlias] = &[
+    BuiltinAlias {
+        name: "new",
+        id: "builtin.session.new",
+        title: "New Task",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "btw",
+        id: "builtin.agent.btw",
+        title: "Ask Aside (by the way)",
+        arg_mode: "required",
+    },
+    BuiltinAlias {
+        name: "compact",
+        id: "builtin.agent.compact",
+        title: "Compact Conversation Context",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "copy",
+        id: "builtin.session.copy",
+        title: "Copy Last Reply",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "session",
+        id: "builtin.session.info",
+        title: "Session Info",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "status",
+        id: "builtin.app.status",
+        title: "Runtime Status",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "agent-mode",
+        id: "builtin.mode.agent",
+        title: "Switch to Agent",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "plan-mode",
+        id: "builtin.mode.plan",
+        title: "Switch to Plan",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "goal-mode",
+        id: "builtin.mode.goal",
+        title: "Switch to Goal",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "export",
+        id: "builtin.session.export",
+        title: "Export Session (pigo JSONL)",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "rebuild",
+        id: "builtin.agent.rebuild",
+        title: "Rebuild Conversation Context",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "goal",
+        id: "builtin.agent.goal",
+        title: "Set or Inspect Goal",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "tree",
+        id: "builtin.session.tree",
+        title: "Conversation Nodes (tree)",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "rewind",
+        id: "builtin.session.rewind",
+        title: "Restore Points (rewind)",
+        arg_mode: "optional",
+    },
+    BuiltinAlias {
+        name: "memory",
+        id: "builtin.memory.report",
+        title: "Persistent Memory Report",
+        arg_mode: "none",
+    },
+    BuiltinAlias {
+        name: "dream",
+        id: "builtin.agent.dream",
+        title: "Consolidate Memory (dream)",
+        arg_mode: "optional",
+    },
 ];
 
 pub async fn commands(state: &AppState, project: Option<&str>) -> Vec<Value> {
     let mut rows: Vec<Value> = Vec::new();
     let mut taken: HashSet<String> = HashSet::new();
 
-    for (name, id, title) in BUILTIN_ALIASES {
-        taken.insert((*name).to_string());
+    for alias in BUILTIN_ALIASES {
+        taken.insert(alias.name.to_string());
         rows.push(json!({
-            "name": name,
+            "name": alias.name,
             "kind": "builtin",
-            "title": title,
-            "id": id,
+            "title": alias.title,
+            "id": alias.id,
+            "argMode": alias.arg_mode,
         }));
     }
 

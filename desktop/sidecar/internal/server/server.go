@@ -26,6 +26,8 @@ type Server struct {
 	logger  *log.Logger
 	host    sidecarruntime.Host
 	manager *sidecarruntime.Manager
+	btw     *sidecarruntime.SideRunner
+	dream   *sidecarruntime.DreamRunner
 
 	mu     sync.RWMutex
 	config protocol.ConfigureParams
@@ -41,27 +43,36 @@ func New(options Options) *Server {
 			Host:   options.Host,
 			Logger: options.Logger,
 		}),
+		btw:   sidecarruntime.NewSideRunner(options.Host, options.Logger),
+		dream: sidecarruntime.NewDreamRunner(options.Host, options.Logger),
 	}
 }
 
 // Register wires the minimal method set onto conn.
 func (s *Server) Register(conn *jsonrpc.Conn) {
-	s.manager.SetEmitter(newEventEmitter(conn))
+	emitter := newEventEmitter(conn)
+	s.manager.SetEmitter(emitter)
+	s.btw.SetEmitter(emitter)
 
 	conn.Handle(protocol.MethodSidecarConfigure, s.handleConfigure)
 	conn.Handle(protocol.MethodSidecarHealth, s.handleHealth)
 	conn.Handle(protocol.MethodAgentGetStatus, s.handleGetStatus)
 	conn.Handle(protocol.MethodAgentDisposeSession, s.handleDisposeSession)
+	conn.Handle(protocol.MethodAgentRebuild, s.handleRebuild)
 	conn.Handle(protocol.MethodAgentPrompt, s.handlePrompt)
 	conn.Handle(protocol.MethodAgentSteer, s.handleSteer)
 	conn.Handle(protocol.MethodAgentAbort, s.handleAbort)
 	conn.Handle(protocol.MethodAgentStop, s.handleStop)
 	conn.Handle(protocol.MethodAskToolResolve, s.handleAskToolResolve)
 	conn.Handle(protocol.MethodAgentCompact, s.handleCompact)
+	conn.Handle(protocol.MethodAgentBtw, s.handleBtw)
+	conn.Handle(protocol.MethodAgentBtwCancel, s.handleBtwCancel)
 	conn.Handle(protocol.MethodAgentExecutePlan, s.handleExecuteApprovedPlan)
 	conn.Handle(protocol.MethodPromptEnhance, s.handlePromptEnhance)
 	conn.Handle(protocol.MethodSessionTitle, s.handleSummarizeTitle)
 	conn.Handle(protocol.MethodPluginComplete, s.handlePluginComplete)
+	conn.Handle(protocol.MethodMemoryReport, s.handleMemoryReport)
+	conn.Handle(protocol.MethodAgentDream, s.handleDream)
 }
 
 func (s *Server) handleConfigure(_ context.Context, params json.RawMessage) (any, error) {
@@ -109,6 +120,25 @@ func (s *Server) handleDisposeSession(_ context.Context, params json.RawMessage)
 		s.manager.Dispose(sessionID)
 	}
 	return protocol.OKResult{OK: true}, nil
+}
+
+// handleRebuild serves /rebuild. Unlike agent.disposeSession it reloads the
+// context immediately, so the next prompt sees the rebuilt transcript even
+// when the user does not send anything first.
+func (s *Server) handleRebuild(ctx context.Context, params json.RawMessage) (any, error) {
+	parsed, err := jsonrpc.Decode[protocol.SessionParams](params)
+	if err != nil {
+		return nil, err
+	}
+	sessionID := strings.TrimSpace(parsed.SessionID)
+	if sessionID == "" {
+		return nil, jsonrpc.InvalidParams("agent.rebuild requires sessionId")
+	}
+	rebuilt, err := s.manager.Rebuild(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return protocol.RebuildResult{OK: true, Rebuilt: rebuilt}, nil
 }
 
 func (s *Server) handlePrompt(ctx context.Context, params json.RawMessage) (any, error) {
@@ -235,6 +265,57 @@ func (s *Server) handlePluginComplete(ctx context.Context, params json.RawMessag
 		return nil, err
 	}
 	return map[string]any{"text": text}, nil
+}
+
+// handleMemoryReport serves /memory. It is read-only against the transcript: the
+// memory index is reconciled and counted, never written.
+func (s *Server) handleMemoryReport(_ context.Context, params json.RawMessage) (any, error) {
+	parsed, err := jsonrpc.Decode[protocol.MemoryReportParams](params)
+	if err != nil {
+		return nil, err
+	}
+	return sidecarruntime.BuildMemoryReport(strings.TrimSpace(parsed.Root)), nil
+}
+
+// handleDream serves /dream. The pass can run for minutes (several model calls),
+// so it answers once the consolidation finished and reports the change counts;
+// the renderer shows a busy state for the duration.
+func (s *Server) handleDream(ctx context.Context, params json.RawMessage) (any, error) {
+	parsed, err := jsonrpc.Decode[protocol.DreamParams](params)
+	if err != nil {
+		return nil, err
+	}
+	report, err := s.dream.Run(ctx, parsed)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(report)
+	if err != nil {
+		return nil, jsonrpc.AppError("DREAM_ENCODE", "%s", err)
+	}
+	return protocol.DreamResult{OK: true, Report: raw}, nil
+}
+
+// handleBtw admits one /btw side question. Unlike agent.prompt it does not go
+// through Manager.RuntimeFor: no Session, no host turn and no durable rows.
+func (s *Server) handleBtw(ctx context.Context, params json.RawMessage) (any, error) {
+	parsed, err := jsonrpc.Decode[protocol.BtwParams](params)
+	if err != nil {
+		return nil, err
+	}
+	sideID, err := s.btw.Ask(ctx, parsed)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"accepted": true, "sideId": sideID}, nil
+}
+
+func (s *Server) handleBtwCancel(_ context.Context, params json.RawMessage) (any, error) {
+	parsed, err := jsonrpc.Decode[protocol.BtwCancelParams](params)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"cancelled": s.btw.Cancel(parsed.SideID)}, nil
 }
 
 // handleCompact runs one manual context compaction and answers once the

@@ -105,6 +105,60 @@ fn schema_version(conn: &Connection) -> i64 {
         .unwrap()
 }
 
+fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})")).unwrap();
+    let mut rows = stmt.query([]).unwrap();
+    while let Some(row) = rows.next().unwrap() {
+        let name: String = row.get(1).unwrap();
+        if name == column {
+            return true;
+        }
+    }
+    false
+}
+
+#[test]
+fn v21_database_upgrades_to_v22_with_fork_lineage() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // A v21 database carries neither lineage column. Dropping them is what
+        // an upgrade from the previous release actually looks like.
+        db.conn()
+            .execute_batch(
+                "DROP INDEX idx_sessions_parent;
+                 ALTER TABLE sessions DROP COLUMN forked_from_message_id;
+                 ALTER TABLE sessions DROP COLUMN parent_session_id;",
+            )
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 21).unwrap();
+    }
+
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(column_exists(db.conn(), "sessions", "parent_session_id"));
+    assert!(column_exists(db.conn(), "sessions", "forked_from_message_id"));
+
+    // Re-opening a v22 database must not try the step again.
+    drop(db);
+    let reopened = Database::open(&path).unwrap();
+    assert_eq!(schema_version(reopened.conn()), SCHEMA_VERSION);
+}
+
+#[test]
+fn session_lineage_migration_is_idempotent() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let db = Database::open(&path).unwrap();
+    // A fresh database already has both columns, so the step is a no-op. It is
+    // called unconditionally on every open, which is what makes the older
+    // databases labelled v22 by the staff steps safe.
+    super::migrations::migrate_session_lineage(db.conn(), &path).unwrap();
+    super::migrations::migrate_session_lineage(db.conn(), &path).unwrap();
+    assert!(column_exists(db.conn(), "sessions", "parent_session_id"));
+}
+
 fn insert_raw_app_settings(db: &Database, raw: &str) {
     db.conn()
         .execute(

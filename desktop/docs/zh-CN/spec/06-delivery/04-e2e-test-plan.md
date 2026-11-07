@@ -6,6 +6,8 @@
 > 范围：MVP 接受场景加上 PI-Desktop 当前发货的产品增量
 > 状态：已接受（protocol/Electron 自动化已激活；完整桌面 Playwright 仍在计划中）
 > 交叉引用：[验收标准](/zh-CN/spec/06-delivery/02-acceptance-criteria) · [里程碑](/zh-CN/spec/06-delivery/01-mvp-milestones) · [ai-开发工作流程](/zh-CN/spec/06-delivery/03-ai-development-workflow) · [变更清单](/zh-CN/spec/06-delivery/05-change-checklist)
+>
+> 说明（2026-11-07）：Tauri 迁移后，Electron 主进程的源码契约测试套件，以及旧的发布/构建断言测试均已移除。下文场景目录中引用的测试文件名为历史验证记录，并非现存测试。当前测试套件为 `apps/desktop-tauri` 下的 `node --test test/*.test.mjs`（848 项断言，全部通过）。
 
 ---
 

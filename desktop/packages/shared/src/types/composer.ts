@@ -24,6 +24,14 @@ export type ComposerCommand = {
   source?: "project" | "user";
   /** Palette command id for builtin/plugin execution. */
   id?: string;
+  /**
+   * Argument policy declared by the Rust builtin registry. The composer
+   * submit path uses it instead of matching command ids: `none` runs the
+   * palette action, `optional` may forward its argument as a prompt, and
+   * `required` refuses to run without one. Templates carry their own
+   * `argumentHint` and leave this unset.
+   */
+  argMode?: "none" | "optional" | "required";
   /** Skill id passed to the model's Skill tool. */
   skillId?: string;
 };

@@ -105,6 +105,51 @@ func (m *Manager) DisposeAll() {
 	}
 }
 
+// Rebuild drops one session's live runtime and immediately rebuilds it from
+// the host transcript, without opening a turn. This is the desktop form of the
+// CLI's /rebuild: host-core owns the durable transcript, so "rebuild" means
+// throwing away the in-memory AgentContext and running NewSession again (which
+// restores compaction checkpoints, the tool catalog and the provider binding).
+// A session with no live runtime needs no work: its next prompt builds one.
+func (m *Manager) Rebuild(ctx context.Context, sessionID string) (bool, error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false, jsonrpc.InvalidParams("agent.rebuild requires sessionId")
+	}
+
+	m.mu.Lock()
+	existing := m.sessions[sessionID]
+	var params protocol.PromptParams
+	if existing != nil {
+		params = existing.params
+	}
+	m.mu.Unlock()
+
+	if existing == nil {
+		return false, nil
+	}
+	if existing.Running() {
+		return false, jsonrpc.AppError("AGENT_BUSY", "session already has an active turn")
+	}
+
+	// A rebuild is not a prompt. Clear the previous turn's identity so
+	// snapshotFromDetail does not mistake the last transcript row for the
+	// current (already persisted) user message and drop it.
+	params.TurnID = ""
+	params.Content = ""
+	params.UserMessageID = ""
+	params.Attachments = nil
+	params.TruncateFromMessageID = ""
+	params.TruncateBefore = nil
+	params.RefreshHistory = true
+
+	m.Dispose(sessionID)
+	if _, err := m.RuntimeFor(ctx, params); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // RuntimeFor returns the runtime that should serve a prompt, building one when
 // the session has none or when its binding changed.
 func (m *Manager) RuntimeFor(ctx context.Context, params protocol.PromptParams) (*Session, error) {

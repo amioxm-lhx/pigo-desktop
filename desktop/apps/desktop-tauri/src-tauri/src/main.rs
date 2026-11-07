@@ -36,6 +36,7 @@ mod pulls;
 mod queue;
 mod router;
 mod rpc;
+mod session_export;
 mod shell;
 mod staff_driver;
 mod staff_site_scripts;

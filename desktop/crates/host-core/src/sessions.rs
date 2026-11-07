@@ -106,6 +106,13 @@ pub struct SessionSummary {
     pub thinking_level: String,
     #[serde(default = "default_permission_mode")]
     pub permission_mode: String,
+    /// Source session for a forked branch. `None` for a root session and for
+    /// every fork created before schema v22.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
+    /// Message the branch was cut at, when the fork was message-scoped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forked_from_message_id: Option<String>,
     pub updated_at: String,
     pub created_at: String,
 }
@@ -1045,7 +1052,8 @@ fn session_created_at(db: &Database, session_id: &str) -> Result<String> {
 
 const SUMMARY_SELECT: &str =
     "SELECT s.id, s.title, s.last_seq, p.path, s.model_id, s.provider_id, s.mode,
-            s.thinking_level, s.permission_mode, s.updated_at, s.created_at
+            s.thinking_level, s.permission_mode, s.updated_at, s.created_at,
+            s.parent_session_id, s.forked_from_message_id
      FROM sessions s LEFT JOIN projects p ON p.id = s.project_id
      WHERE s.deleted_at IS NULL";
 
@@ -1062,6 +1070,8 @@ fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionSummary>
         permission_mode: row.get(8)?,
         updated_at: ms_to_ts(row.get(9)?),
         created_at: ms_to_ts(row.get(10)?),
+        parent_session_id: row.get(11)?,
+        forked_from_message_id: row.get(12)?,
     })
 }
 
@@ -1225,6 +1235,8 @@ pub fn create_session_with_options(
         mode,
         thinking_level,
         permission_mode,
+        parent_session_id: None,
+        forked_from_message_id: None,
         updated_at: ms_to_ts(now),
         created_at: ms_to_ts(now),
     })
@@ -1396,10 +1408,10 @@ pub fn fork_session_through(
     }
     let mut source_records =
         dedupe_records(transcripts::read_transcript(db.data_dir(), source_id)?);
-    if let Some(message_id) = through_message_id
+    let cut_at = through_message_id
         .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
+        .filter(|value| !value.is_empty());
+    if let Some(message_id) = cut_at {
         let Some(position) = source_records
             .iter()
             .position(|record| record.id == message_id)
@@ -1439,13 +1451,14 @@ pub fn fork_session_through(
             .prepare_cached(
                 "INSERT INTO sessions (
                     id, title, project_id, provider_id, model_id, mode, thinking_level,
-                    permission_mode, source, pinned, last_seq, created_at, updated_at
+                    permission_mode, source, pinned, last_seq, created_at, updated_at,
+                    parent_session_id, forked_from_message_id
                  )
                  SELECT ?1, ?2, project_id, provider_id, model_id, mode, thinking_level,
-                        permission_mode, NULL, 0, ?3, ?4, ?4
+                        permission_mode, NULL, 0, ?3, ?4, ?4, ?5, ?6
                  FROM sessions WHERE id = ?5",
             )?
-            .execute(params![id, title, records.len() as i64, now, source_id])?;
+            .execute(params![id, title, records.len() as i64, now, source_id, cut_at])?;
         if inserted == 0 {
             return Err(anyhow!("session not found: {source_id}"));
         }
@@ -1471,6 +1484,8 @@ pub fn fork_session_through(
         mode: source.summary.mode,
         thinking_level: source.summary.thinking_level,
         permission_mode: source.summary.permission_mode,
+        parent_session_id: Some(source_id.to_string()),
+        forked_from_message_id: cut_at.map(str::to_string),
         updated_at: created_at.clone(),
         created_at,
     };
@@ -3656,6 +3671,8 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
+            parent_session_id: None,
+            forked_from_message_id: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-02T00:00:00Z".into(),
         };
@@ -3706,6 +3723,8 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
+            parent_session_id: None,
+            forked_from_message_id: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };
@@ -4267,6 +4286,8 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "medium".into(),
             permission_mode: "inherit".into(),
+            parent_session_id: None,
+            forked_from_message_id: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };
@@ -4619,6 +4640,111 @@ mod tests {
                 .len(),
             3
         );
+    }
+
+    #[test]
+    fn fork_records_the_source_session_and_cut_point() {
+        let db = test_db();
+        let source = create_session(&db, Some("Source".into()), None, None, None, None).unwrap();
+        append_message(
+            &db,
+            &source.id,
+            &user_msg("m1", "one", "2025-05-01T00:00:01Z"),
+            None,
+        )
+        .unwrap();
+        append_message(
+            &db,
+            &source.id,
+            &user_msg("m2", "two", "2025-05-01T00:00:02Z"),
+            None,
+        )
+        .unwrap();
+
+        let ForkSessionResult::Created(fork) =
+            fork_session_through(&db, &source.id, None, Some("m2")).unwrap()
+        else {
+            panic!("expected forked session");
+        };
+        assert_eq!(
+            fork.summary.parent_session_id.as_deref(),
+            Some(source.id.as_str())
+        );
+        assert_eq!(fork.summary.forked_from_message_id.as_deref(), Some("m2"));
+
+        // The tree view reads the list, not the fork response, so the persisted
+        // row has to agree with what the caller was told.
+        let listed = list_sessions(&db).unwrap();
+        let row = listed
+            .iter()
+            .find(|session| session.id == fork.summary.id)
+            .unwrap();
+        assert_eq!(
+            row.parent_session_id.as_deref(),
+            Some(source.id.as_str())
+        );
+        assert_eq!(row.forked_from_message_id.as_deref(), Some("m2"));
+
+        // A whole-session fork has no cut point but still records its parent.
+        let ForkSessionResult::Created(whole) =
+            fork_session_through(&db, &source.id, None, None).unwrap()
+        else {
+            panic!("expected forked session");
+        };
+        assert_eq!(
+            whole.summary.parent_session_id.as_deref(),
+            Some(source.id.as_str())
+        );
+        assert!(whole.summary.forked_from_message_id.is_none());
+
+        // Roots stay rootless, so a chain can be walked until it ends.
+        let root = list_sessions(&db)
+            .unwrap()
+            .into_iter()
+            .find(|session| session.id == source.id)
+            .unwrap();
+        assert!(root.parent_session_id.is_none());
+    }
+
+    #[test]
+    fn fork_lineage_survives_a_grandchild_chain() {
+        let db = test_db();
+        let root = create_session(&db, Some("Root".into()), None, None, None, None).unwrap();
+        append_message(
+            &db,
+            &root.id,
+            &user_msg("m1", "one", "2025-05-01T00:00:01Z"),
+            None,
+        )
+        .unwrap();
+
+        let ForkSessionResult::Created(child) =
+            fork_session_through(&db, &root.id, None, Some("m1")).unwrap()
+        else {
+            panic!("expected child");
+        };
+        let ForkSessionResult::Created(grandchild) =
+            fork_session_through(&db, &child.summary.id, None, None).unwrap()
+        else {
+            panic!("expected grandchild");
+        };
+
+        let by_id = list_sessions(&db)
+            .unwrap()
+            .into_iter()
+            .map(|session| (session.id.clone(), session))
+            .collect::<std::collections::HashMap<_, _>>();
+        assert_eq!(
+            by_id[&grandchild.summary.id]
+                .parent_session_id
+                .as_deref(),
+            Some(child.summary.id.as_str())
+        );
+        assert_eq!(
+            by_id[&child.summary.id].parent_session_id.as_deref(),
+            Some(root.id.as_str())
+        );
+        assert!(by_id[&root.id].parent_session_id.is_none());
     }
 
     #[test]

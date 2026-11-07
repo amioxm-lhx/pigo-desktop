@@ -111,6 +111,7 @@ export function createSessionSlice({
   | "newSession"
   | "forkSession"
   | "forkAssistantMessage"
+  | "branchFromMessage"
   | "configureActiveSession"
 > {
   const refreshSessionList = createRefreshCoordinator(async () => {
@@ -572,6 +573,43 @@ export function createSessionSlice({
           error: error instanceof Error ? error.message : String(error),
           errorCode: (error as { code?: string })?.code ?? null,
         });
+      }
+    },
+
+    /**
+     * Desktop `/tree <n>`: fork the active session through an arbitrary node
+     * and activate the copy. The desktop has no message-tree lineage, so the
+     * equivalent of switching the REPL's active leaf is an independent fork
+     * (ADR 0023). The source session is never modified.
+     */
+    branchFromMessage: async (messageId) => {
+      const intent = runtime.beginNavigationIntent();
+      const state = get();
+      const sessionId = state.activeSessionId;
+      if (!sessionId || !messageId || state.runningSessions[sessionId]) {
+        return false;
+      }
+      const source = state.sessions.find((session) => session.id === sessionId);
+      if (!source) return false;
+      try {
+        const sourceTitle = source.title.trim() || i18n.t("chat.untitledTask");
+        const result = await api.forkSession(
+          sessionId,
+          i18n.t("nav.branchTitle", { title: sourceTitle }),
+          messageId,
+        );
+        if (!runtime.navigationIntentIsCurrent(intent)) return false;
+        commitForkedSession(result.session, {
+          activate: true,
+          clearError: true,
+        });
+        return true;
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : String(error),
+          errorCode: (error as { code?: string })?.code ?? null,
+        });
+        return false;
       }
     },
 

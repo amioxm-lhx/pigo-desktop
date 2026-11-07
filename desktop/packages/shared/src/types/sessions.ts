@@ -1,8 +1,8 @@
 /** Shared public types grouped by the owning application domain. */
 import type { Mode } from "./common.js";
+import type { UiMessage } from "./messages.js";
 import type { ThinkingLevel } from "./models.js";
 import type { PermissionMode } from "./permissions.js";
-import type { UiMessage } from "./messages.js";
 import type { PlanningState } from "./plans.js";
 
 export type SessionSummary = {
@@ -22,6 +22,11 @@ export type SessionSummary = {
   /** Effective image-input capability for this session's exact model. */
   supportsVision?: boolean;
   supportedThinkingLevels?: ThinkingLevel[];
+  /** Source session for a forked branch (schema v22). Absent for a root
+   * session and for every fork created before the column existed. */
+  parentSessionId?: string;
+  /** Message the branch was cut at, when the fork was message-scoped. */
+  forkedFromMessageId?: string;
   updatedAt: string;
   createdAt: string;
 };
