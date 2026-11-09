@@ -219,9 +219,15 @@ export function ModelSelectionPanes({
   const [chosenQuery, setChosenQuery] = useState("");
   const [customModelId, setCustomModelId] = useState("");
   const [customModelError, setCustomModelError] = useState("");
-  const [expandedModelId, setExpandedModelId] = useState<string | null>(
-    () => models[0]?.id ?? null,
+  // Each configured model owns an independent advanced sheet. A single-id
+  // accordion here meant only one model exposed its parameters at a time and
+  // opening another row snapped the previous one shut, which read as "only
+  // the first model can be configured".
+  const [expandedModelIds, setExpandedModelIds] = useState<ReadonlySet<string>>(
+    () => new Set(models.slice(0, 1).map((binding) => binding.id)),
   );
+  const expandModel = (id: string) =>
+    setExpandedModelIds((current) => new Set(current).add(id));
 
   // The returned list is short and already local, so filtering is client-side:
   // no host search and no debounced IPC round trip.
@@ -293,7 +299,7 @@ export function ModelSelectionPanes({
       (binding) => binding.id.toLowerCase() === wanted,
     );
     if (!alreadyChosen) {
-      setExpandedModelId((open) => open ?? row.id);
+      expandModel(row.id);
       keepAddedModelVisible([bindingForRow(row)]);
     }
     setModels((current) => {
@@ -306,7 +312,8 @@ export function ModelSelectionPanes({
 
   const toggleVisibleModels = (select: boolean) => {
     if (select) {
-      setExpandedModelId((open) => open ?? visibleRows[0]?.id ?? null);
+      const firstVisible = visibleRows[0]?.id;
+      if (firstVisible) expandModel(firstVisible);
       const added = visibleRows
         .filter((row) => !selected.has(row.id.toLowerCase()))
         .map((row) => bindingForRow(row));
@@ -332,7 +339,7 @@ export function ModelSelectionPanes({
     }
     const binding = bindingForCustomModel(id);
     setModels((current) => [...current, binding]);
-    setExpandedModelId(id);
+    expandModel(id);
     setCustomModelId("");
     setCustomModelError("");
     keepAddedModelVisible([binding]);
@@ -517,7 +524,7 @@ export function ModelSelectionPanes({
               const info = infoById.get(binding.id.toLowerCase());
               const publishedImages = info ? modelMatchesFilter(info, "vision") : false;
               const publishedDocuments = info ? modelMatchesFilter(info, "pdf") : false;
-              const expanded = expandedModelId === binding.id;
+              const expanded = expandedModelIds.has(binding.id);
               const advancedId = `model-advanced-${binding.id}`;
               return (
                 <li className="provider-chosen-row" key={binding.id}>
@@ -538,9 +545,12 @@ export function ModelSelectionPanes({
                       aria-expanded={expanded}
                       aria-controls={advancedId}
                       onClick={() =>
-                        setExpandedModelId((current) =>
-                          current === binding.id ? null : binding.id,
-                        )
+                        setExpandedModelIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(binding.id)) next.delete(binding.id);
+                          else next.add(binding.id);
+                          return next;
+                        })
                       }
                     >
                       {t("settings.advanced")}
