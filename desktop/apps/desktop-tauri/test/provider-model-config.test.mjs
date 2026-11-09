@@ -85,7 +85,18 @@ test("token limits are adopted from the published record, never typed by default
   // Both dialogs adopt them through the one shared picker (D269).
   assert.match(pickerSource, /bindingFromModelInfo\(/);
   // Numeric overrides stay behind the per-row disclosure.
-  assert.match(pickerSource, /expandedModelId/);
+  assert.match(pickerSource, /expandedModelIds/);
+});
+
+test("every configured model owns an independent advanced sheet", () => {
+  // A single-id accordion collapsed the previous row whenever another model's
+  // 高级 was opened, which read as "only the first model can be configured".
+  assert.match(pickerSource, /expandedModelIds/);
+  assert.match(pickerSource, /ReadonlySet<string>/);
+  assert.match(pickerSource, /expandedModelIds\.has\(binding\.id\)/);
+  // Opening a row only adds to the open set; it never replaces it.
+  assert.doesNotMatch(pickerSource, /setExpandedModelIds\(\s*\w+\s*\)/);
+  assert.match(pickerSource, /new Set\(current\)\.add\(id\)/);
 });
 
 test("custom API format is a common-path choice, named services skip it", () => {
