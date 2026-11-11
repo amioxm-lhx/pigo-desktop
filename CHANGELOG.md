@@ -56,6 +56,14 @@ interactive REPL/TUI.
   the later snapshot as a replayed id. The mapper now opens every fragment with
   a fresh id, and `OpenAIDecoder` emits `StreamStartEvent` like the other
   decoders.
+- Desktop: the MCP and skills pages offered no create button under an empty
+  project-level group, and the global group's empty-state button reused the
+  filter-driven target, so with the filter on "project" it created into the
+  project level. Each group now pins its own level.
+- CLI: an MCP server id present in both `mcp.toml` layers was connected twice,
+  producing two tools under one `mcp_<server>_<tool>` name. The project layer
+  now overrides the global entry in place (matching the desktop client), and its
+  file-level `enabled = false` switch is honoured like the global layer's.
 
 ## [0.5.6] - 2026-09-12
 

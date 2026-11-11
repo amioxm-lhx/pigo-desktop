@@ -144,8 +144,8 @@ export function AgentSkillsPage() {
   /** Where a new or imported skill lands: the filtered level, global when both. */
   const targetLevel: AgentCapabilityLevel = filter === "project" ? "project" : "global";
 
-  const openCreate = () => {
-    if (targetLevel === "project" && !selectedProjectPath) {
+  const openCreateAt = (level: AgentCapabilityLevel) => {
+    if (level === "project" && !selectedProjectPath) {
       showToast(t("settings.selectProjectFirst"), { variant: "error" });
       return;
     }
@@ -153,14 +153,16 @@ export function AgentSkillsPage() {
       draft: {
         ...emptySkillDraft(),
         scope:
-          targetLevel === "global"
+          level === "global"
             ? GLOBAL_SCOPE
             : { mode: "projects", projects: [selectedProjectPath!] },
       },
       editing: null,
-      level: targetLevel,
+      level,
     });
   };
+
+  const openCreate = () => openCreateAt(targetLevel);
 
   const openEdit = async (skill: UserSkillRecord, level: AgentCapabilityLevel) => {
     const key = rowKey(level, skill.id);
@@ -370,6 +372,22 @@ export function AgentSkillsPage() {
 
   const showGlobal = filter !== "project";
   const showProject = filter !== "global";
+  // A group's empty state must create into that group; only the toolbar's
+  // button follows the filter (targetLevel).
+  const newSkillButton = (level: AgentCapabilityLevel) => (
+    <CapabilityButton
+      variant="primary"
+      title={
+        level === "project"
+          ? t("settings.capabilityCreateInProject")
+          : t("settings.capabilityCreateInGlobal")
+      }
+      onClick={() => openCreateAt(level)}
+    >
+      <IconPlus size={14} />
+      {t("extensions.skills.add")}
+    </CapabilityButton>
+  );
   const newSkillTitle =
     targetLevel === "project"
       ? t("settings.capabilityCreateInProject")
@@ -472,12 +490,7 @@ export function AgentSkillsPage() {
                   <CapabilityEmpty
                     message={t("settings.skillsEmpty")}
                     icon={<IconBookOpen size={18} />}
-                    action={
-                      <CapabilityButton variant="primary" onClick={openCreate}>
-                        <IconPlus size={14} />
-                        {t("extensions.skills.add")}
-                      </CapabilityButton>
-                    }
+                    action={newSkillButton("global")}
                   />
                 ) : (
                   visible.global.map((skill) => renderRow(skill, "global"))
@@ -498,6 +511,7 @@ export function AgentSkillsPage() {
                   <CapabilityEmpty
                     message={t("settings.skillsEmpty")}
                     icon={<IconBookOpen size={18} />}
+                    action={newSkillButton("project")}
                   />
                 ) : (
                   visible.project.map((skill) => renderRow(skill, "project"))

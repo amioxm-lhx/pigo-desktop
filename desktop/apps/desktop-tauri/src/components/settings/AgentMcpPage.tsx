@@ -129,8 +129,8 @@ export function AgentMcpPage() {
   /** New servers land at whichever level the filter is pointing at. */
   const targetLevel: AgentCapabilityLevel = filter === "project" ? "project" : "global";
 
-  const openCreate = () => {
-    if (targetLevel === "project" && !selectedProjectPath) {
+  const openCreateAt = (level: AgentCapabilityLevel) => {
+    if (level === "project" && !selectedProjectPath) {
       showToast(t("settings.selectProjectFirst"), { variant: "error" });
       return;
     }
@@ -138,14 +138,16 @@ export function AgentMcpPage() {
       draft: {
         ...emptyMcpDraft(),
         scope:
-          targetLevel === "global"
+          level === "global"
             ? GLOBAL_SCOPE
             : { mode: "projects", projects: [selectedProjectPath!] },
       },
       editing: null,
-      level: targetLevel,
+      level,
     });
   };
+
+  const openCreate = () => openCreateAt(targetLevel);
 
   const openEdit = (server: McpServerRecord, level: AgentCapabilityLevel) => {
     setMenuFor(null);
@@ -383,20 +385,23 @@ export function AgentMcpPage() {
 
   const showGlobal = filter !== "project";
   const showProject = filter !== "global";
-  const addButton = (
+  // A group's empty state must create into that group; only the toolbar's
+  // button follows the filter (targetLevel).
+  const addButtonFor = (level: AgentCapabilityLevel) => (
     <CapabilityButton
       variant="primary"
       title={
-        targetLevel === "project"
+        level === "project"
           ? t("settings.capabilityCreateInProject")
           : t("settings.capabilityCreateInGlobal")
       }
-      onClick={openCreate}
+      onClick={() => openCreateAt(level)}
     >
       <IconPlus size={14} />
       {t("settings.addMcp")}
     </CapabilityButton>
   );
+  const addButton = addButtonFor(targetLevel);
 
   const marketButton = (
     <CapabilityButton
@@ -477,7 +482,7 @@ export function AgentMcpPage() {
                   <CapabilityEmpty
                     message={t("settings.mcpEmpty")}
                     icon={<IconServer size={18} />}
-                    action={addButton}
+                    action={addButtonFor("global")}
                   />
                 ) : (
                   visible.global.map((server) => renderRow(server, "global"))
@@ -497,6 +502,7 @@ export function AgentMcpPage() {
                   <CapabilityEmpty
                     message={t("settings.mcpEmpty")}
                     icon={<IconServer size={18} />}
+                    action={addButtonFor("project")}
                   />
                 ) : (
                   visible.project.map((server) => renderRow(server, "project"))

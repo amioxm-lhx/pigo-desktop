@@ -156,6 +156,80 @@ command = "project-server"
 	}
 }
 
+// writeProjectLayer drops an mcp.toml under <proj>/.pigo so the project tier
+// has something to merge.
+func writeProjectLayer(t *testing.T, proj, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(proj, ".pigo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(proj, ".pigo", "mcp.toml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestResolveProjectLayerOverridesGlobalById pins the cross-layer rule: one id
+// resolves to one server, and the project definition wins. Appending both used
+// to connect the same id twice, yielding duplicate mcp_<server>_<tool> names.
+func TestResolveProjectLayerOverridesGlobalById(t *testing.T) {
+	proj := t.TempDir()
+	writeProjectLayer(t, proj, `
+[[server]]
+id = "files"
+command = "project-files"
+`)
+	settings := Servers{Servers: []Server{
+		{ID: "files", Command: "global-files"},
+		{ID: "keep", Command: "global-keep"},
+	}}
+	var warns []string
+	got := Resolve(settings, proj, true, func(f string, a ...any) {
+		warns = append(warns, fmt.Sprintf(f, a...))
+	})
+	if len(got) != 2 {
+		t.Fatalf("resolved %d servers (%+v), want 2 — the shared id must not be duplicated", len(got), got)
+	}
+	if got[0].ID != "files" || got[0].Command != "project-files" {
+		t.Errorf("files entry = %+v, want the project definition in the global slot", got[0])
+	}
+	if got[1].ID != "keep" || got[1].Command != "global-keep" {
+		t.Errorf("keep entry = %+v, want the untouched global server", got[1])
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "overrides global server") {
+		t.Errorf("warnings = %q, want one override notice", warns)
+	}
+}
+
+// TestResolveProjectLayerAppendsNewIds keeps the additive half of the contract:
+// ids only present in the project layer are appended after the global ones.
+func TestResolveProjectLayerAppendsNewIds(t *testing.T) {
+	proj := t.TempDir()
+	writeProjectLayer(t, proj, `
+[[server]]
+id = "extra"
+command = "project-extra"
+`)
+	got := Resolve(Servers{Servers: []Server{{ID: "files", Command: "global-files"}}}, proj, true, nil)
+	if len(got) != 2 || got[0].ID != "files" || got[1].ID != "extra" {
+		t.Errorf("resolved = %+v, want [files extra]", got)
+	}
+}
+
+// TestResolveProjectFileEnabledSwitch: the project file's own enabled=false
+// master switch must be honoured, exactly like the global layer's.
+func TestResolveProjectFileEnabledSwitch(t *testing.T) {
+	proj := t.TempDir()
+	writeProjectLayer(t, proj, `
+enabled = false
+[[server]]
+id = "off"
+command = "project-off"
+`)
+	if got := Resolve(Servers{Servers: []Server{{ID: "files", Command: "global-files"}}}, proj, true, nil); len(got) != 1 || got[0].ID != "files" {
+		t.Errorf("resolved = %+v, want only the global server", got)
+	}
+}
+
 // TestResolveFileEnabledSwitch: a standalone file with enabled=false
 // contributes no servers even though its entries are valid.
 func TestResolveFileEnabledSwitch(t *testing.T) {

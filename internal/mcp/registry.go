@@ -154,7 +154,44 @@ func Resolve(settings Servers, cwd string, trusted bool, warnf func(string, ...a
 		if err != nil {
 			warnf("%v", err)
 		}
-		out = append(out, f.EnabledServers(warnf)...)
+		// The file-level switch is honoured for both layers; only the global
+		// one used to check it.
+		if f.IsEnabled() {
+			out = mergeLayers(out, f.EnabledServers(warnf), warnf)
+		}
+	}
+	return out
+}
+
+// mergeLayers overlays the project layer on the global one. A project entry
+// with an id already present replaces it in place, so the server is connected
+// once and its project definition wins — the same project-shadows-global rule
+// the desktop client applies (mcp_servers.rs::merge_active_records). Appending
+// blindly used to connect both copies, which surfaced two tools sharing one
+// mcp_<server>_<tool> name.
+func mergeLayers(global, project []Server, warnf func(string, ...any)) []Server {
+	if len(project) == 0 {
+		return global
+	}
+	if warnf == nil {
+		warnf = func(string, ...any) {}
+	}
+	index := make(map[string]int, len(global)+len(project))
+	for i, s := range global {
+		index[s.ID] = i
+	}
+	// Copy instead of aliasing: the caller's slice must not be rewritten when a
+	// project entry replaces a global one.
+	out := make([]Server, len(global), len(global)+len(project))
+	copy(out, global)
+	for _, s := range project {
+		if i, ok := index[s.ID]; ok {
+			warnf("pigo: mcp: project layer overrides global server %q", s.ID)
+			out[i] = s
+			continue
+		}
+		index[s.ID] = len(out)
+		out = append(out, s)
 	}
 	return out
 }
