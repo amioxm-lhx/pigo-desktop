@@ -71,6 +71,12 @@ interactive REPL/TUI.
   click was answered with "path outside allowed roots". Directory listing was
   unaffected because it never compares against the roots. Both sides now resolve
   through the same canonicalization.
+- Desktop: the work panel's maximize toggle did nothing outside the chat page.
+  Preview mode hides the center pane, and the guard that restores it before a
+  destination is presented tested `page !== "chat"` instead of a page change, so
+  entering preview anywhere else was reverted on the next frame — the dock
+  flashed open and snapped back. Preview now ends only when the page actually
+  changes.
 
 ## [0.5.6] - 2026-09-12
 

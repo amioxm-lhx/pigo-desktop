@@ -17,6 +17,7 @@ import { api } from "../../lib/api";
 import { broadcastPluginAppearance } from "../../lib/plugin-surface-bridge";
 import { installRendererApi } from "../../capture/renderer-api";
 import { commitWorkPanelPresentation } from "../../lib/work-panel-presentation";
+import { shouldLeavePreviewForPageChange } from "../../lib/work-panel-preview";
 import { browserPluginTab } from "../../lib/work-panel-tabs";
 import {
   MAIN_PANE_MIN_WIDTH,
@@ -216,13 +217,25 @@ export function useAppShellRuntime() {
     }
   }, [activeSessionId, closeSubagentPanel, page, subagentPanel]);
 
-  // Destination pages own the center pane. Leaving Chat while previewing must
-  // restore that pane before the destination is presented; otherwise the
-  // sidebar can change `page` successfully while the route stays unmounted.
+  // Destination pages own the center pane. Navigating to another destination
+  // while previewing must restore that pane before the destination is
+  // presented; otherwise the sidebar changes `page` successfully while the
+  // route stays unmounted. Only a page *change* ends preview — entering it from
+  // a non-chat destination is the user's own request and must stick.
+  const previewPageRef = useRef(page);
   useEffect(() => {
-    if (workPanelMaximized && page !== "chat") {
-      setWorkPanelMaximized(false);
+    if (
+      !shouldLeavePreviewForPageChange({
+        maximized: workPanelMaximized,
+        previewPage: previewPageRef.current,
+        page,
+      })
+    ) {
+      previewPageRef.current = page;
+      return;
     }
+    previewPageRef.current = page;
+    setWorkPanelMaximized(false);
   }, [page, workPanelMaximized]);
 
   useEffect(() => {
