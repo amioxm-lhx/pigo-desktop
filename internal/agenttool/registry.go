@@ -162,6 +162,15 @@ func compileSchema(name string, raw json.RawMessage) (*jsonschema.Schema, error)
 	return c.Compile(loc)
 }
 
+// CompileSchema is the exported form of compileSchema, for callers that must
+// validate a third-party schema BEFORE registering a tool (e.g. the MCP
+// client): ToolRegistry.Register drops a tool whose schema fails to compile
+// silently, so a pre-registration check is what turns that silent loss into a
+// loud, per-tool warning.
+func CompileSchema(name string, raw json.RawMessage) (*jsonschema.Schema, error) {
+	return compileSchema(name, raw)
+}
+
 // flattenValidationError walks the ValidationError tree and returns one
 // FieldError per leaf cause (the most specific failures), falling back to the
 // node itself when it has no causes.

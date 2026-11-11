@@ -44,6 +44,11 @@ type TelemetrySummary struct {
 	ContextWindow      int                          `json:"context_window"`
 	ContextUtilization float64                      `json:"context_utilization"`
 	ToolDurations      map[string]ToolTimingSummary `json:"tool_durations_ms"`
+	// MCPTools is the additive v1 audit field (docs/mcp-local-integration.md
+	// §3.7.6): the mcp_-namespaced subset of ToolDurations, keyed by the
+	// namespaced tool name (which encodes the server id). Omitted when empty,
+	// so pre-MCP documents are byte-identical to the original golden.
+	MCPTools map[string]ToolTimingSummary `json:"mcp_tools,omitempty"`
 }
 
 // TelemetrySummaryFromEvent maps the accumulator's TelemetryEvent onto the
@@ -54,6 +59,13 @@ func TelemetrySummaryFromEvent(e agentcore.TelemetryEvent) TelemetrySummary {
 	for name, t := range e.ToolDurationsMs {
 		tools[name] = ToolTimingSummary{Count: t.Count, TotalMs: t.TotalMs}
 	}
+	var mcpTools map[string]ToolTimingSummary
+	if len(e.MCPTools) > 0 {
+		mcpTools = make(map[string]ToolTimingSummary, len(e.MCPTools))
+		for name, t := range e.MCPTools {
+			mcpTools[name] = ToolTimingSummary{Count: t.Count, TotalMs: t.TotalMs}
+		}
+	}
 	return TelemetrySummary{
 		SchemaVersion:      TelemetrySchemaVersion,
 		Turns:              e.Turns,
@@ -63,6 +75,7 @@ func TelemetrySummaryFromEvent(e agentcore.TelemetryEvent) TelemetrySummary {
 		ContextWindow:      e.ContextWindow,
 		ContextUtilization: e.ContextUtilization,
 		ToolDurations:      tools,
+		MCPTools:           mcpTools,
 	}
 }
 

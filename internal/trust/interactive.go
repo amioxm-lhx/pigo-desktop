@@ -39,6 +39,19 @@ var SideEffectTools = map[string]bool{
 	"edit":  true,
 }
 
+// IsSideEffect reports whether a tool call must pass the trust gate: the tool
+// declares side effects via the optional agentcore.SideEffectDeclarer interface
+// (plugin and MCP tools do), or — for tools that do not implement it — its name
+// is in the built-in SideEffectTools table. tool may be nil (the call did not
+// come from the executor, or came from a direct hook invocation), in which case
+// only the name table applies.
+func IsSideEffect(tool agentcore.AgentTool, name string) bool {
+	if d, ok := tool.(agentcore.SideEffectDeclarer); ok {
+		return d.HasSideEffects()
+	}
+	return SideEffectTools[name]
+}
+
 // EstablishTrust decides how the launch directory's trust is established before
 // the REPL runs. When approve is true (mirrors pi's --approve/-a), it grants
 // session trust up front so the first-launch prompt is skipped and side-effect
@@ -212,7 +225,7 @@ func BeforeToolCall(mgr *Manager, cwd string, in *bufio.Reader, out io.Writer, m
 		return nil
 	}
 	return func(ctx context.Context, call agentcore.AgentToolCall) *agentcore.BeforeToolCallDecision {
-		if !SideEffectTools[call.Name] {
+		if !IsSideEffect(call.Tool, call.Name) {
 			return nil
 		}
 		if mu != nil {

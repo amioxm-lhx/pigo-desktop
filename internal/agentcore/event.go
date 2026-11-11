@@ -175,6 +175,12 @@ type TelemetryEvent struct {
 	Turns int
 	// ToolDurationsMs maps a tool name to its aggregated timing over the run.
 	ToolDurationsMs map[string]ToolTiming
+	// MCPTools summarizes calls to MCP-namespaced tools (name prefix "mcp_"),
+	// keyed by the same namespaced names (which encode the server id per the
+	// frozen mcp_<server>_<tool> convention) — the per-server/tool/duration
+	// audit trail of docs/mcp-local-integration.md §3.7.6. It is a subset of
+	// ToolDurationsMs, kept separate so MCP audit is greppable without parsing.
+	MCPTools map[string]ToolTiming
 	// TruncationCount is how many assistant responses stopped with reason
 	// "length" (truncated by the output token cap), each triggering a resend.
 	TruncationCount int

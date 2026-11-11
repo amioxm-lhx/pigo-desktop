@@ -59,6 +59,7 @@ func New(opts ...Option) (*Session, error) {
 	env, err := run.SetupEnv(
 		c.model, c.baseURL, c.protocol, c.provider, c.apiKey,
 		c.noTools, !c.skills, c.systemPrompt, c.appendSystemPrompt, c.memory, policy,
+		run.MCPSettings{},
 	)
 	if err != nil {
 		return nil, err
@@ -71,6 +72,9 @@ func New(opts ...Option) (*Session, error) {
 		}
 		if env.Memory != nil {
 			_ = env.Memory.Close()
+		}
+		if env.MCP != nil {
+			_ = env.MCP.Close()
 		}
 		return nil, err
 	}
@@ -190,6 +194,11 @@ func (s *Session) Close() error {
 	}
 	if s.env.Memory != nil {
 		if err := s.env.Memory.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if s.env.MCP != nil {
+		if err := s.env.MCP.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}

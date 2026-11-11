@@ -107,7 +107,7 @@ func prepareToolCall(ctx context.Context, cfg ToolExecutorConfig, call agentcore
 
 	// beforeToolCall hook (may block or rewrite arguments).
 	if cfg.BeforeToolCall != nil {
-		if dec := cfg.BeforeToolCall(ctx, agentcore.AgentToolCall{ID: call.ID, Name: call.Name, Arguments: args}); dec != nil {
+		if dec := cfg.BeforeToolCall(ctx, agentcore.AgentToolCall{ID: call.ID, Name: call.Name, Arguments: args, Tool: tool}); dec != nil {
 			if dec.Block {
 				r := agentcore.AgentToolResult{}
 				if dec.Content != nil {

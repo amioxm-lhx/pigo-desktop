@@ -264,6 +264,58 @@ func TestTrustBeforeToolCallSkipsNonSideEffect(t *testing.T) {
 	}
 }
 
+// fakeDeclarerTool is a minimal AgentTool stub used only for type assertion of
+// the optional SideEffectDeclarer interface; no method is ever invoked.
+type fakeDeclarerTool struct {
+	agentcore.AgentTool
+	sideEffects bool
+}
+
+func (t fakeDeclarerTool) HasSideEffects() bool { return t.sideEffects }
+
+// TestIsSideEffect verifies the gate predicate: a SideEffectDeclarer's own
+// verdict wins; tools that do not implement it fall back to the built-in name
+// table; a nil tool (call not from the executor) uses the name table only.
+func TestIsSideEffect(t *testing.T) {
+	yes := fakeDeclarerTool{sideEffects: true}
+	no := fakeDeclarerTool{sideEffects: false}
+
+	if !IsSideEffect(yes, "some_mcp_tool") {
+		t.Error("declarer with HasSideEffects=true should be gated regardless of name")
+	}
+	if IsSideEffect(no, "some_mcp_tool") {
+		t.Error("declarer with HasSideEffects=false should not be gated")
+	}
+	if !IsSideEffect(nil, "bash") {
+		t.Error("nil tool + built-in side-effect name should be gated (name-table fallback)")
+	}
+	if IsSideEffect(nil, "read") {
+		t.Error("nil tool + non-side-effect name should not be gated")
+	}
+}
+
+// TestTrustBeforeToolCallGatesDeclaredSideEffects verifies that a tool whose
+// name is unknown to the built-in table (e.g. a plugin or a bridged MCP tool)
+// is still prompted in an untrusted directory when it declares side effects,
+// and is NOT gated when it declares none.
+func TestTrustBeforeToolCallGatesDeclaredSideEffects(t *testing.T) {
+	cwd := t.TempDir()
+	mgr, _ := newTrustManager(t)
+	mu := &sync.Mutex{}
+	var out bytes.Buffer
+	hook := BeforeToolCall(mgr, cwd, readerOf("n\n"), &out, mu)
+
+	gated := agentcore.AgentToolCall{Name: "mcp_fs_write", Tool: fakeDeclarerTool{sideEffects: true}}
+	if dec := hook(context.Background(), gated); dec == nil || !dec.Block {
+		t.Errorf("declared side-effect tool with unknown name: got %+v, want a Block decision", dec)
+	}
+
+	untouched := agentcore.AgentToolCall{Name: "mcp_fs_read", Tool: fakeDeclarerTool{sideEffects: false}}
+	if dec := hook(context.Background(), untouched); dec != nil {
+		t.Errorf("declared read-only tool: got %+v, want nil", dec)
+	}
+}
+
 // TestRegisterTrustCommand exercises the /trust action closure: status on an
 // undecided dir, on (default) persists Trusted, once grants session trust, off
 // revokes session trust AND persists Untrusted (the M2 regression - without

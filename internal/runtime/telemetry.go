@@ -13,6 +13,7 @@
 package runtime
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,12 @@ type telemetryAcc struct {
 	toolStarts map[string]time.Time
 	// toolTimings aggregates finished tool durations by tool name.
 	toolTimings map[string]agentcore.ToolTiming
+	// mcpTimings is the MCP audit slice of toolTimings: the same folds, but
+	// only for mcp_-namespaced tools, keyed by the namespaced name (which
+	// encodes the server id per the frozen mcp_<server>_<tool> convention,
+	// docs/mcp-local-integration.md §3.7.6). Third-party payloads are never
+	// recorded — names and durations only.
+	mcpTimings map[string]agentcore.ToolTiming
 
 	// contextTokens / contextWindow capture the most recent context accounting so
 	// the summary can report the latest utilization ratio. contextWindow == 0
@@ -52,6 +59,7 @@ func newTelemetry() *telemetryAcc {
 	return &telemetryAcc{
 		toolStarts:  make(map[string]time.Time),
 		toolTimings: make(map[string]agentcore.ToolTiming),
+		mcpTimings:  make(map[string]agentcore.ToolTiming),
 		now:         time.Now,
 	}
 }
@@ -83,6 +91,13 @@ func (t *telemetryAcc) observe(ev agentcore.AgentEvent) {
 		agg.Count++
 		agg.TotalMs += elapsed
 		t.toolTimings[e.ToolName] = agg
+		// The MCP audit slice: same fold, mcp_-namespaced tools only (§3.7.6).
+		if strings.HasPrefix(e.ToolName, "mcp_") {
+			mcp := t.mcpTimings[e.ToolName]
+			mcp.Count++
+			mcp.TotalMs += elapsed
+			t.mcpTimings[e.ToolName] = mcp
+		}
 	case agentcore.TurnEndEvent:
 		if e.Message.StopReason == agentcore.StopReasonLength {
 			t.truncationCount++
@@ -121,6 +136,10 @@ func (t *telemetryAcc) summary() agentcore.TelemetryEvent {
 	for name, v := range t.toolTimings {
 		timings[name] = v
 	}
+	mcpTimings := make(map[string]agentcore.ToolTiming, len(t.mcpTimings))
+	for name, v := range t.mcpTimings {
+		mcpTimings[name] = v
+	}
 	var utilization float64
 	if t.contextWindow > 0 {
 		utilization = float64(t.contextTokens) / float64(t.contextWindow)
@@ -128,6 +147,7 @@ func (t *telemetryAcc) summary() agentcore.TelemetryEvent {
 	return agentcore.TelemetryEvent{
 		Turns:              t.turns,
 		ToolDurationsMs:    timings,
+		MCPTools:           mcpTimings,
 		TruncationCount:    t.truncationCount,
 		CompactionCount:    t.compactionCount,
 		ContextUtilization: utilization,

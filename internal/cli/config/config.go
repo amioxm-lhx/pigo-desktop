@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/smallnest/pigo/internal/mcp"
 )
 
 // FileConfig is the on-disk shape of config.toml. Every field is optional; an
@@ -67,6 +69,21 @@ type FileConfig struct {
 	// internal/dream (Config). See tasks/spec-dream-memory-consolidation.md
 	// §3.3.
 	Dream DreamConfig `toml:"dream"`
+	// MCP is the [mcp] TOML table for the native MCP client (US-014/US-015):
+	// an enabled master switch plus the servers tier ([[mcp.servers]]). The
+	// entry shape is the frozen mcp.toml shape (internal/mcp.Server), shared
+	// with the standalone mcp.toml file the bridge and the default resolution
+	// read. Pure config plumbing here: overlay into run.MCPSettings lives in
+	// cmd/pigo, per this package's decode-only contract.
+	MCP MCPConfig `toml:"mcp"`
+}
+
+// MCPConfig is the [mcp] TOML table. Enabled is a pointer so an absent key
+// (nil) is distinguishable from an explicit false: nil is treated as on, only
+// enabled = false (or --no-mcp) turns discovery off.
+type MCPConfig struct {
+	Enabled *bool         `toml:"enabled"`
+	Servers []mcp.Server `toml:"servers"`
 }
 
 // DreamConfig is the [dream] TOML table for /dream memory consolidation.

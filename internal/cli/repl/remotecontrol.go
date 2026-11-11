@@ -201,7 +201,7 @@ func bridgeBeforeToolCall(mgr *trust.Manager, cwd string, rs *remoteSession, out
 			}
 			return nil
 		}
-		if !trust.SideEffectTools[call.Name] {
+		if !trust.IsSideEffect(call.Tool, call.Name) {
 			return nil
 		}
 		if mu != nil {

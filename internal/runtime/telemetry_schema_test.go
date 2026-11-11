@@ -51,7 +51,10 @@ func writeOrCompare(t *testing.T, path string, got []byte) {
 	if err != nil {
 		t.Fatalf("golden fixture %s unreadable (run go test -update-telemetry-goldens): %v", path, err)
 	}
-	normalized := strings.TrimSpace(string(want))
+	// Normalize CRLF before comparing: a Windows checkout with autocrlf stores
+	// the fixture with CRLF endings, and the comparison must not depend on the
+	// checkout's line-ending policy.
+	normalized := strings.ReplaceAll(strings.TrimSpace(string(want)), "\r\n", "\n")
 	if normalized != string(got) {
 		t.Fatalf("golden drift in %s:\n--- want ---\n%s\n--- got ---\n%s", path, normalized, got)
 	}

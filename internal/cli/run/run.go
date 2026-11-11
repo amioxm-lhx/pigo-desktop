@@ -17,6 +17,7 @@ import (
 	"github.com/smallnest/pigo/internal/agenttool"
 	"github.com/smallnest/pigo/internal/builtinskills"
 	"github.com/smallnest/pigo/internal/hooks"
+	"github.com/smallnest/pigo/internal/mcp"
 	"github.com/smallnest/pigo/internal/memory"
 	"github.com/smallnest/pigo/internal/plugin"
 	"github.com/smallnest/pigo/internal/provider"
@@ -59,7 +60,20 @@ type Env struct {
 	// GetFollowUpMessages seam (see NewConfig) and front-ends can reach it via
 	// agenttool.ScheduleFromTools.
 	Schedule *agenttool.Schedule
+
+	// MCP is the connected local MCP server set (US-014/US-015), or nil when MCP
+	// is disabled (--no-mcp / --no-tools / no servers configured / every server
+	// failed to connect). Its tools are already appended to Tools; this field
+	// exists so the caller MUST Close it when the run ends, terminating the
+	// server subprocesses.
+	MCP *mcp.Manager
 }
+
+// MCPSettings carries the MCP configuration tiers into SetupEnv: the [mcp]
+// table of config.toml (resolved by the cmd/pigo overlay) plus the --mcp-config
+// flag. It is an alias for mcp.Servers; the zero value is "MCP off", so callers
+// that do not care (tests, the agent package) pass it unchanged.
+type MCPSettings = mcp.Servers
 
 // SetupEnv resolves the provider for model/baseURL, builds the tool set rooted
 // at the working directory, and constructs the system prompt — the setup the
@@ -74,7 +88,7 @@ type Env struct {
 // fully assembled tool set and then applied, so an unknown tool name is a usage
 // error rather than a silently ineffective boundary. It returns an error rather
 // than exiting so the caller owns exit-code mapping.
-func SetupEnv(model, baseURL, protocol, providerName, apiKey string, noTools, noSkills bool, systemPrompt string, appendSystemPrompt []string, memEnabled bool, policy ToolPolicy) (Env, error) {
+func SetupEnv(model, baseURL, protocol, providerName, apiKey string, noTools, noSkills bool, systemPrompt string, appendSystemPrompt []string, memEnabled bool, policy ToolPolicy, mcpCfg MCPSettings) (Env, error) {
 	cwd, _ := os.Getwd()
 	prov, resolvedName, err := provider.ResolveProvider(model, baseURL, protocol, providerName, os.Getenv)
 	if err != nil {
@@ -160,6 +174,23 @@ func SetupEnv(model, baseURL, protocol, providerName, apiKey string, noTools, no
 			fmt.Fprintf(os.Stderr, "pigo: plugin discovery failed: %v\n", err)
 		}
 	}
+	// Connect local MCP servers (US-014/US-015) and append their tools, right
+	// here — before ValidateToolPolicy below — because MCP tool names only exist
+	// at runtime and --allowed-tools/--disallowed-tools must see them. Like
+	// plugins, MCP is skipped under --no-tools and additionally under --no-mcp;
+	// each server that fails to connect is warned and skipped. The project-level
+	// .pigo/mcp.toml layer is trust-gated (fail-closed, docs §3.7.1): it merges
+	// only when cwd is trusted, so a cloned repository cannot launch arbitrary
+	// commands.
+	var mcpMgr *mcp.Manager
+	if !noTools && !mcpCfg.Disabled {
+		mcpMgr = mcp.ConnectAll(mcpCfg, cwd, Trusted(cwd), os.Stderr, func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, format+"\n", args...)
+		})
+		if mcpMgr != nil {
+			tools = append(tools, mcpMgr.Tools()...)
+		}
+	}
 	// Enforce the --allowed-tools/--disallowed-tools boundary now that the set is
 	// complete. Validation must happen here rather than at flag-parse time: plugin
 	// and memory tool names only exist at runtime, so an earlier check would reject
@@ -211,6 +242,7 @@ func SetupEnv(model, baseURL, protocol, providerName, apiKey string, noTools, no
 		Plugins:      mgr,
 		Memory:       memStore,
 		Schedule:     sched,
+		MCP:          mcpMgr,
 	}, nil
 }
 

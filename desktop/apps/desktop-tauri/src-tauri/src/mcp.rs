@@ -14,13 +14,16 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 
 use crate::state::AppState;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 const CALL_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_TOOLS_PER_SERVER: usize = 64;
+/// tools/list pagination cap (gap 2): a server that never stops paging is cut
+/// off here instead of looping forever.
+const MAX_LIST_PAGES: usize = 8;
 /// ADR 0038: at most eight servers per plugin.
 const MAX_PLUGIN_SERVERS: usize = 8;
 const PROTOCOL_VERSION: &str = "2024-11-05";
@@ -53,11 +56,22 @@ enum Connection {
     Http(HttpConnection),
 }
 
+/// In-flight stdio request id → the oneshot the reader task resolves with the
+/// reply envelope. The read loop lives in one dedicated task (gap 1, docs
+/// mcp-local-integration.md §4) instead of being inlined into request().
+type StdioPending = std::sync::Mutex<HashMap<u64, oneshot::Sender<Value>>>;
+
 struct StdioConnection {
-    /// Dropping the child (with `kill_on_drop`) ends the server process.
+    /// Dropping the child (with `kill_on_drop`) ends the server process,
+    /// which EOFs stdout and ends the reader task.
     _child: tokio::process::Child,
-    stdin: tokio::process::ChildStdin,
-    stdout: BufReader<tokio::process::ChildStdout>,
+    /// Shared with the reader task so it can answer server→client requests.
+    stdin: Arc<Mutex<tokio::process::ChildStdin>>,
+    /// Requests awaiting their reply, keyed by id.
+    pending: Arc<StdioPending>,
+    /// Request ids the server cancelled via notifications/cancelled; the next
+    /// matching reply is turned into an error instead of a fake result.
+    cancelled: Arc<std::sync::Mutex<std::collections::HashSet<u64>>>,
     next_id: u64,
     initialized: bool,
 }
@@ -322,16 +336,7 @@ impl McpRuntime {
 
     async fn list_tools(&self, server_id: &str, record: &Value) -> Result<Vec<Value>, String> {
         let connection = self.connection(server_id, record).await?;
-        let mut client = connection.lock().await;
-        client.initialize(CONNECT_TIMEOUT).await?;
-        let result = client
-            .request("tools/list", json!({}), CONNECT_TIMEOUT)
-            .await?;
-        Ok(result
-            .get("tools")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default())
+        list_tools_paginated(&connection, server_id).await
     }
 
     async fn connection(
@@ -385,6 +390,12 @@ impl Connection {
         if command.is_empty() {
             return Err("MCP server has no command".into());
         }
+        let env = record.get("env").and_then(Value::as_object);
+        // Gap 3: Windows' CreateProcess neither consults PATHEXT nor executes
+        // batch files directly, so a bare `npx` cannot start as written.
+        // resolve_windows_command looks the name up on PATH and routes
+        // .cmd/.bat launchers through `cmd /c`.
+        let (program, command_prefix) = resolve_windows_command(&command);
         let args: Vec<String> = record
             .get("args")
             .and_then(Value::as_array)
@@ -395,13 +406,16 @@ impl Connection {
                     .collect()
             })
             .unwrap_or_default();
-        let env = record.get("env").and_then(Value::as_object);
-        let mut process = tokio::process::Command::new(&command);
+        let mut full_args = command_prefix;
+        full_args.extend(args);
+        let mut process = tokio::process::Command::new(&program);
         process
-            .args(&args)
+            .args(&full_args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            // stderr would otherwise fill the pipe and stall the server.
+            // stderr would otherwise fill the pipe and stall the server. It is
+            // intentionally not surfaced (the launch contract predates gap 1);
+            // stdout log lines are skipped by the reader instead.
             .stderr(Stdio::null())
             .kill_on_drop(true);
         // A plugin-declared server never inherits the host environment: it
@@ -449,10 +463,15 @@ impl Connection {
             .stdout
             .take()
             .ok_or_else(|| "MCP server stdout is unavailable".to_string())?;
+        let stdin = Arc::new(Mutex::new(stdin));
+        let pending: Arc<StdioPending> = Arc::default();
+        let cancelled: Arc<std::sync::Mutex<std::collections::HashSet<u64>>> = Arc::default();
+        spawn_stdio_reader(BufReader::new(stdout), stdin.clone(), pending.clone(), cancelled.clone());
         Ok(Self::Stdio(StdioConnection {
             _child: child,
             stdin,
-            stdout: BufReader::new(stdout),
+            pending,
+            cancelled,
             next_id: 1,
             initialized: false,
         }))
@@ -504,6 +523,8 @@ impl Connection {
                 let line = format!("{payload}\n");
                 stdio
                     .stdin
+                    .lock()
+                    .await
                     .write_all(line.as_bytes())
                     .await
                     .map_err(|error| error.to_string())
@@ -514,6 +535,10 @@ impl Connection {
 }
 
 impl StdioConnection {
+    /// Send one request and await its reply from the reader task via the
+    /// pending map. Writing and reading are decoupled (gap 1): out-of-order or
+    /// foreign traffic can no longer stall the caller, and a server that
+    /// closes stdout fails every in-flight call instead of timing out one.
     async fn request(
         &mut self,
         method: &str,
@@ -528,39 +553,42 @@ impl StdioConnection {
             "method": method,
             "params": params,
         });
-        let line = format!("{payload}\n");
-        self.stdin
-            .write_all(line.as_bytes())
-            .await
-            .map_err(|error| format!("MCP server stdin: {error}"))?;
-        loop {
-            let mut buffer = String::new();
-            let read = tokio::time::timeout(timeout, self.stdout.read_line(&mut buffer)).await;
-            let count = match read {
-                Err(_) => return Err(format!("MCP {method} timed out")),
-                Ok(Err(error)) => return Err(format!("MCP server stdout: {error}")),
-                Ok(Ok(count)) => count,
-            };
-            if count == 0 {
-                return Err("MCP server closed its output".into());
-            }
-            let Ok(value) = serde_json::from_str::<Value>(buffer.trim()) else {
-                // Not every server speaks one JSON object per line; a log line
-                // on stdout is ignored rather than treated as the answer.
-                continue;
-            };
-            if value.get("id").and_then(Value::as_i64) != Some(id as i64) {
-                continue;
-            }
-            if let Some(error) = value.get("error") {
-                return Err(error
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("MCP server returned an error")
-                    .to_string());
-            }
-            return Ok(value.get("result").cloned().unwrap_or(Value::Null));
+        // Register before writing: a fast reply must never race the map insert.
+        let (sender, receiver) = oneshot::channel();
+        if let Some(stale) = self.pending.lock().unwrap().insert(id, sender) {
+            // A timed-out request's slot got reused? Impossible (ids are
+            // unique), but dropping a stale sender only fails that old call.
+            drop(stale);
         }
+        let line = format!("{payload}\n");
+        if let Err(error) = self.stdin.lock().await.write_all(line.as_bytes()).await {
+            self.pending.lock().unwrap().remove(&id);
+            return Err(format!("MCP server stdin: {error}"));
+        }
+        let reply = match tokio::time::timeout(timeout, receiver).await {
+            // On timeout the call is abandoned: the reader drops the sender
+            // slot, and a late reply is reported as unknown-request-id.
+            Err(_) => {
+                self.pending.lock().unwrap().remove(&id);
+                return Err(format!("MCP {method} timed out"));
+            }
+            Ok(Err(_dropped)) => return Err("MCP server closed its output".into()),
+            Ok(Ok(reply)) => reply,
+        };
+        // The server told us it stopped working on this call (gap 1: the
+        // notification used to be dropped silently and the caller waited out
+        // the whole timeout).
+        if self.cancelled.lock().unwrap().remove(&id) {
+            return Err(format!("MCP {method} was cancelled by the server"));
+        }
+        if let Some(error) = reply.get("error") {
+            return Err(error
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("MCP server returned an error")
+                .to_string());
+        }
+        Ok(reply.get("result").cloned().unwrap_or(Value::Null))
     }
 }
 
@@ -836,8 +864,222 @@ fn safe_token(value: &str) -> String {
     }
 }
 
+/// Gap 1 (docs/mcp-local-integration.md §4): one task owns stdout for the
+/// connection's whole lifetime and routes every line to its consumer —
+/// replies resolve the pending map, server→client requests are answered with
+/// method-not-supported so the server's own timeout does not wedge the pipe,
+/// and notifications are logged (cancelled ids fail in-flight calls fast).
+/// Modeled on the Go client's read loop (internal/jsonrpc); the old in-request
+/// sync loop dropped any interleaved traffic and could never make progress
+/// past it.
+fn spawn_stdio_reader(
+    mut stdout: BufReader<tokio::process::ChildStdout>,
+    stdin: Arc<Mutex<tokio::process::ChildStdin>>,
+    pending: Arc<StdioPending>,
+    cancelled: Arc<std::sync::Mutex<std::collections::HashSet<u64>>>,
+) {
+    tokio::spawn(async move {
+        loop {
+            let mut buffer = String::new();
+            match stdout.read_line(&mut buffer).await {
+                Ok(0) | Err(_) => break, // EOF or pipe error: fail everything below
+                Ok(_) => {}
+            }
+            let Ok(value) = serde_json::from_str::<Value>(buffer.trim()) else {
+                continue; // a log line on stdout is not an answer
+            };
+            match classify_message(&value) {
+                MessageKind::Reply => {
+                    if let Some(id) = message_id(&value) {
+                        if let Some(sender) = pending.lock().unwrap().remove(&id) {
+                            let _ = sender.send(value);
+                        } else {
+                            log::warn!("MCP server sent a reply for unknown request id {id}");
+                        }
+                    }
+                }
+                MessageKind::ServerRequest(method) => {
+                    log::warn!(
+                        "MCP server request {method} is not supported; answering method-not-supported"
+                    );
+                    let reply = json!({
+                        "jsonrpc": "2.0",
+                        "id": value.get("id").cloned().unwrap_or(Value::Null),
+                        "error": {
+                            "code": -32601,
+                            "message": format!("pigo-desktop does not support {method}"),
+                        },
+                    });
+                    let line = format!("{reply}\n");
+                    let _ = stdin.lock().await.write_all(line.as_bytes()).await;
+                }
+                MessageKind::Notification(method) => {
+                    if method == "notifications/cancelled" {
+                        if let Some(id) = value.pointer("/params/id").and_then(Value::as_u64) {
+                            cancelled.lock().unwrap().insert(id);
+                        }
+                    }
+                    log::debug!("MCP server notification: {method}");
+                }
+            }
+        }
+        // EOF or pipe error: every in-flight request fails immediately —
+        // dropping the senders makes the receivers report "server closed its
+        // output" instead of waiting out their timeouts.
+        pending.lock().unwrap().clear();
+    });
+}
+
+/// The three shapes a stdio line can take.
+#[derive(Debug)]
+enum MessageKind {
+    /// A reply to one of our requests (id present, no method).
+    Reply,
+    /// A request the server sent to us (id + method): sampling/createMessage,
+    /// roots/list, elicitation/create.
+    ServerRequest(String),
+    /// A one-way notification (method, no id): progress, cancelled.
+    Notification(String),
+}
+
+/// Classify one decoded JSON-RPC message for the reader's dispatch.
+fn classify_message(value: &Value) -> MessageKind {
+    let method = value.get("method").and_then(Value::as_str);
+    match (method, message_id(value)) {
+        (Some(method), Some(_)) => MessageKind::ServerRequest(method.to_string()),
+        (Some(method), None) => MessageKind::Notification(method.to_string()),
+        _ => MessageKind::Reply,
+    }
+}
+
+/// The request id of a message, when it is a real id (present and not null).
+fn message_id(value: &Value) -> Option<u64> {
+    value
+        .get("id")
+        .filter(|id| !id.is_null())
+        .and_then(Value::as_u64)
+}
+
+/// The nextCursor of a tools/list (or resources/list) reply, if the server
+/// says there is another page.
+fn next_cursor(result: &Value) -> Option<String> {
+    result
+        .get("nextCursor")
+        .and_then(Value::as_str)
+        .filter(|cursor| !cursor.is_empty())
+        .map(str::to_string)
+}
+
+/// Gap 3: Windows' CreateProcess neither consults PATHEXT nor executes batch
+/// files directly, so a bare `npx` or `uvx` cannot start as written. Resolve
+/// the command the same way the CLI does (internal/mcp/client.go
+/// resolveCommand): look a bare name up on PATH honoring PATHEXT, and route
+/// .cmd/.bat launchers through `cmd /c <path>`. Non-Windows targets pass
+/// through unchanged.
+fn resolve_windows_command(command: &str) -> (String, Vec<String>) {
+    if !cfg!(windows) {
+        return (command.to_string(), Vec::new());
+    }
+    let ext = std::path::Path::new(command)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !ext.is_empty() {
+        if ext == "cmd" || ext == "bat" {
+            return ("cmd".to_string(), vec!["/c".to_string(), command.to_string()]);
+        }
+        return (command.to_string(), Vec::new());
+    }
+    match locate_on_path(command) {
+        Some(path) => {
+            let ext = std::path::Path::new(&path)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if ext == "cmd" || ext == "bat" {
+                ("cmd".to_string(), vec!["/c".to_string(), path])
+            } else {
+                (path, Vec::new())
+            }
+        }
+        // Unresolvable: pass the name through and let spawn report the
+        // failure with a clear error.
+        None => (command.to_string(), Vec::new()),
+    }
+}
+
+/// Search PATH × PATHEXT for a bare command name, first hit in PATHEXT order.
+/// The search set is injected for tests; locate_on_path supplies the process
+/// environment.
+fn locate_on_path_in(path_var: &str, pathext: &str, command: &str) -> Option<String> {
+    let exts: Vec<&str> = pathext
+        .split(';')
+        .map(str::trim)
+        .filter(|ext| ext.starts_with('.'))
+        .collect();
+    for dir in path_var.split(';') {
+        if dir.is_empty() {
+            continue;
+        }
+        for ext in &exts {
+            let candidate = std::path::Path::new(dir).join(format!("{command}{ext}"));
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+        }
+    }
+    None
+}
+
+fn locate_on_path(command: &str) -> Option<String> {
+    let path_var = std::env::var("PATH").ok()?;
+    let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_string());
+    locate_on_path_in(&path_var, &pathext, command)
+}
+
 fn failure(code: &str, message: String) -> Value {
     json!({ "ok": false, "errorCode": code, "content": { "error": message } })
+}
+
+/// Follow the tools/list cursor pagination on a connection (gap 2): merge
+/// pages until the server is done, the page cap trips, or the per-server tool
+/// cap is reached — servers that page their catalogs were silently truncated
+/// to page one. Shared by the runtime's tool catalog and `mcp/test`.
+async fn list_tools_paginated(
+    connection: &Arc<Mutex<Connection>>,
+    server_id: &str,
+) -> Result<Vec<Value>, String> {
+    let mut client = connection.lock().await;
+    client.initialize(CONNECT_TIMEOUT).await?;
+    let mut tools = Vec::new();
+    let mut cursor: Option<String> = None;
+    for _page in 0..MAX_LIST_PAGES {
+        let params = match &cursor {
+            Some(cursor) => json!({ "cursor": cursor }),
+            None => json!({}),
+        };
+        let result = client.request("tools/list", params, CONNECT_TIMEOUT).await?;
+        if let Some(page) = result.get("tools").and_then(Value::as_array).cloned() {
+            tools.extend(page);
+        }
+        if tools.len() >= MAX_TOOLS_PER_SERVER {
+            log::warn!(
+                "MCP server {server_id} exposes more than {MAX_TOOLS_PER_SERVER} tools; the list is truncated"
+            );
+            tools.truncate(MAX_TOOLS_PER_SERVER);
+            return Ok(tools);
+        }
+        cursor = next_cursor(&result);
+        if cursor.is_none() {
+            return Ok(tools);
+        }
+    }
+    log::warn!(
+        "MCP server {server_id} kept sending cursors after {MAX_LIST_PAGES} pages; the tool list may be incomplete"
+    );
+    Ok(tools)
 }
 
 /// `mcp/test`: one isolated connection through the supplied config.
@@ -875,30 +1117,20 @@ pub async fn test(state: &Arc<AppState>, params: &Value) -> Value {
     let Some(record) = record else {
         return failed(format!("MCP server {server_id} is not configured"));
     };
-    // A test connection is disposable: connect, handshake, list, drop.
-    let mut connection = match Connection::connect(&record).await {
-        Ok(connection) => connection,
+    // A test connection is disposable: connect, handshake, list, drop. The
+    // same paginated listing the runtime uses keeps toolCount honest for
+    // servers that page their catalog.
+    let connection = match Connection::connect(&record).await {
+        Ok(connection) => Arc::new(Mutex::new(connection)),
         Err(message) => return failed(message),
     };
-    if let Err(message) = connection.initialize(CONNECT_TIMEOUT).await {
-        return failed(message);
-    }
-    match connection
-        .request("tools/list", json!({}), CONNECT_TIMEOUT)
-        .await
-    {
-        Ok(result) => {
-            let names: Vec<Value> = result
-                .get("tools")
-                .and_then(Value::as_array)
-                .map(|tools| {
-                    tools
-                        .iter()
-                        .take(MAX_TOOLS_PER_SERVER)
-                        .filter_map(|tool| tool.get("name").cloned())
-                        .collect()
-                })
-                .unwrap_or_default();
+    match list_tools_paginated(&connection, server_id).await {
+        Ok(tools) => {
+            let names: Vec<Value> = tools
+                .iter()
+                .take(MAX_TOOLS_PER_SERVER)
+                .filter_map(|tool| tool.get("name").cloned())
+                .collect();
             json!({ "status": {
                 "serverId": server_id,
                 "state": "ready",
@@ -993,8 +1225,9 @@ fn server_input(id: &str, config: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{
-        exposed_name, new_runtime, plugin_mcp_record, resolve_refs, safe_token, server_input,
-        sse_payload, Connection, ToolRef, CONNECT_TIMEOUT,
+        classify_message, exposed_name, locate_on_path_in, message_id, new_runtime, next_cursor,
+        plugin_mcp_record, resolve_refs, resolve_windows_command, safe_token, server_input,
+        sse_payload, Connection, MessageKind, ToolRef, CONNECT_TIMEOUT,
     };
     use serde_json::json;
 
@@ -1009,6 +1242,102 @@ mod tests {
             "mcp_my_server_tool_v2"
         );
         assert_eq!(safe_token(""), "unnamed");
+    }
+
+    // Gap 1: message classification for the reader task's dispatch.
+
+    #[test]
+    fn replies_are_classified_by_absent_method() {
+        let reply = json!({ "jsonrpc": "2.0", "id": 7, "result": {} });
+        assert!(matches!(classify_message(&reply), MessageKind::Reply));
+        // A reply envelope whose error replaces result is still a reply.
+        let error = json!({ "jsonrpc": "2.0", "id": 8, "error": { "code": -1 } });
+        assert!(matches!(classify_message(&error), MessageKind::Reply));
+    }
+
+    #[test]
+    fn server_requests_and_notifications_are_distinguished_by_id() {
+        // sampling/createMessage with an id: the server asks us something.
+        let request = json!({ "jsonrpc": "2.0", "id": 3, "method": "sampling/createMessage" });
+        match classify_message(&request) {
+            MessageKind::ServerRequest(method) => assert_eq!(method, "sampling/createMessage"),
+            other => panic!("expected ServerRequest, got {other:?}"),
+        }
+        // The same method without an id is a one-way notification.
+        let notification = json!({ "jsonrpc": "2.0", "method": "notifications/progress" });
+        match classify_message(&notification) {
+            MessageKind::Notification(method) => assert_eq!(method, "notifications/progress"),
+            other => panic!("expected Notification, got {other:?}"),
+        }
+        // An id of null is not a real id (some servers emit id: null for
+        // notifications), so it must classify as a notification.
+        let null_id = json!({ "jsonrpc": "2.0", "id": null, "method": "notifications/progress" });
+        assert!(matches!(classify_message(&null_id), MessageKind::Notification(_)));
+    }
+
+    #[test]
+    fn message_ids_accept_u64_and_reject_null() {
+        assert_eq!(message_id(&json!({ "id": 42 })), Some(42));
+        assert_eq!(message_id(&json!({ "id": null })), None);
+        assert_eq!(message_id(&json!({})), None);
+    }
+
+    // Gap 2: tools/list cursor pagination helpers.
+
+    #[test]
+    fn next_cursor_reads_and_filters_empty_strings() {
+        assert_eq!(next_cursor(&json!({ "nextCursor": "page-2" })), Some("page-2".into()));
+        assert_eq!(next_cursor(&json!({ "nextCursor": "" })), None);
+        assert_eq!(next_cursor(&json!({})), None);
+        // A numeric nextCursor is not a cursor (the protocol uses strings).
+        assert_eq!(next_cursor(&json!({ "nextCursor": 5 })), None);
+    }
+
+    // Gap 3: Windows command resolution.
+
+    #[test]
+    fn batch_launchers_ride_cmd_c() {
+        let (program, prefix) = resolve_windows_command("npx.cmd");
+        assert_eq!(program, "cmd");
+        assert_eq!(prefix, vec!["/c".to_string(), "npx.cmd".to_string()]);
+        let (program, prefix) = resolve_windows_command("C:/tools/server.bat");
+        assert_eq!(program, "cmd");
+        assert_eq!(prefix, vec!["/c".to_string(), "C:/tools/server.bat".to_string()]);
+    }
+
+    #[test]
+    fn real_executables_and_paths_pass_through() {
+        let (program, prefix) = resolve_windows_command("server.exe");
+        assert_eq!(program, "server.exe");
+        assert!(prefix.is_empty());
+        let (program, prefix) = resolve_windows_command("C:/bin/server.exe");
+        assert_eq!(program, "C:/bin/server.exe");
+        assert!(prefix.is_empty());
+    }
+
+    #[test]
+    fn bare_names_resolve_on_path_in_pathext_order() {
+        // dirA has the .exe first in PATHEXT order; dirB only has the .cmd.
+        let dir = std::env::temp_dir().join("pigo-mcp-pathext-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("a")).unwrap();
+        std::fs::create_dir_all(dir.join("b")).unwrap();
+        std::fs::write(dir.join("a").join("tool.EXE"), b"mz").unwrap();
+        std::fs::write(dir.join("b").join("wrapper.CMD"), b"@echo off").unwrap();
+        let path_var = format!("{};{}", dir.join("a").display(), dir.join("b").display());
+        // PATHEXT order puts .EXE before .CMD, and dir a comes first: the exe wins.
+        let found = locate_on_path_in(&path_var, ".COM;.EXE;.BAT;.CMD", "tool").unwrap();
+        assert!(found.ends_with("tool.EXE"), "found = {found}");
+        // A name that only exists as a batch file resolves to the .cmd file...
+        let found = locate_on_path_in(&path_var, ".COM;.EXE;.BAT;.CMD", "wrapper").unwrap();
+        assert!(found.ends_with("wrapper.CMD"), "found = {found}");
+        // An unknown bare name passes through unchanged so spawn reports it.
+        let (program, prefix) = resolve_windows_command("definitely-not-installed-tool");
+        if cfg!(windows) {
+            assert_eq!(program, "definitely-not-installed-tool");
+            assert!(prefix.is_empty());
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -40,12 +40,28 @@ type AgentTool interface {
 	Execute(ctx context.Context, id string, args json.RawMessage, onUpdate ToolUpdateFunc) (AgentToolResult, error)
 }
 
+// SideEffectDeclarer is an optional interface a tool implements to declare that
+// it has side effects. The trust layer gates tools that declare side effects in
+// untrusted directories even when their name is not in the built-in
+// SideEffectTools name table (e.g. plugin and MCP tools, whose names only exist
+// at runtime). Tools that do not implement it keep the name-table behavior:
+// they are gated only when their name is listed.
+type SideEffectDeclarer interface {
+	HasSideEffects() bool
+}
+
 // AgentToolCall is a decoded request to invoke a tool (the loop-level view of a
 // ToolCallContent block).
 type AgentToolCall struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
+
+	// Tool is the registered AgentTool for this call, set by the executor's
+	// prepare phase just before hooks run; nil when the tool is unknown or the
+	// call did not come from the executor. Hooks use it to consult optional
+	// interfaces (e.g. SideEffectDeclarer). Never serialized.
+	Tool AgentTool `json:"-"`
 }
 
 // AgentToolResult is the outcome of executing a tool.

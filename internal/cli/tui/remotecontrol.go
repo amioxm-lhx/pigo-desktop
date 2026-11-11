@@ -90,7 +90,7 @@ func remoteConfirmSeam(rs *remoteSession, mgr *trust.Manager, cwd string) agentc
 		if !rs.hasClient() || mgr == nil {
 			return nil
 		}
-		if !trust.SideEffectTools[call.Name] {
+		if !trust.IsSideEffect(call.Tool, call.Name) {
 			return nil
 		}
 		if mgr.IsTrusted(cwd) {

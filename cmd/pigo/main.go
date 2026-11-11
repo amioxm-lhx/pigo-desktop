@@ -41,6 +41,7 @@ import (
 	"github.com/smallnest/pigo/internal/cli/tui"
 	"github.com/smallnest/pigo/internal/cli/ui"
 	"github.com/smallnest/pigo/internal/dream"
+	"github.com/smallnest/pigo/internal/mcp"
 	"github.com/smallnest/pigo/internal/provider"
 	"github.com/smallnest/pigo/internal/selfupdate"
 	"github.com/smallnest/pigo/internal/webhook"
@@ -173,6 +174,15 @@ type cliOptions struct {
 	// but can never widen the boundary.
 	allowedTools    []string
 	disallowedTools []string
+	// noMCP disables local MCP server discovery (--no-mcp): no mcp.toml is read
+	// and no server subprocess is launched. Implied by --no-tools.
+	noMCP bool
+	// mcpConfigPath is the --mcp-config path: a standalone mcp.toml to load as
+	// the global MCP layer, replacing the config.toml [mcp] servers (CLI > file).
+	mcpConfigPath string
+	// mcpFileServers is the config.toml [mcp] servers tier, overlaid by
+	// applyFileConfig and replaced wholesale by --mcp-config when given.
+	mcpFileServers []mcp.Server
 }
 
 func main() {
@@ -234,6 +244,8 @@ func main() {
 	flag.BoolVarP(&opts.continueLast, "continue", "c", false, "resume the most recent interactive session")
 	flag.BoolVarP(&opts.approve, "approve", "a", false, "trust the working directory for this run: skip the first-launch trust prompt and run side-effect tools without per-call confirmation")
 	flag.BoolVar(&opts.noSkills, "no-skills", false, "disable skill discovery (do not load skills under ~/.agents/skills as /skill-name commands)")
+	flag.BoolVar(&opts.noMCP, "no-mcp", false, "disable local MCP server discovery entirely (no mcp.toml is read, no server subprocess is launched; also implied by --no-tools)")
+	flag.StringVar(&opts.mcpConfigPath, "mcp-config", "", "path to a mcp.toml listing local MCP servers to connect (replaces the config.toml [mcp] servers; the default without it is ~/.pigo/mcp.toml, plus the trusted project's .pigo/mcp.toml)")
 	flag.BoolVar(&opts.noPromptTemplates, "no-prompt-templates", false, "disable prompt-template discovery (do not load ~/.pigo/{commands,prompts}, .pigo/prompts, config prompts, or --prompt-template); built-in slash commands are unaffected")
 	flag.StringVar(&opts.systemPrompt, "system-prompt", "", "system prompt to use instead of the default coding-assistant prompt (mirrors pi --system-prompt)")
 	flag.StringArrayVar(&opts.appendSystemPrompt, "append-system-prompt", nil, "append text or file contents to the system prompt; repeatable (mirrors pi --append-system-prompt)")
@@ -375,6 +387,16 @@ func applyFileConfig(opts *cliOptions, cfg config.FileConfig, changed func(strin
 	if len(cfg.DisallowedTools) > 0 && !changed("disallowed-tools") {
 		opts.disallowedTools = cfg.DisallowedTools
 	}
+	// The [mcp] table has no dedicated servers flag: --mcp-config replaces the
+	// file's server list wholesale (CLI > file, same semantics as the tool
+	// boundary), while --no-mcp overrides the file's enabled switch. An absent
+	// enabled key means on, so only an explicit false propagates.
+	if cfg.MCP.Enabled != nil && !*cfg.MCP.Enabled && !changed("no-mcp") {
+		opts.noMCP = true
+	}
+	if len(cfg.MCP.Servers) > 0 && !changed("mcp-config") {
+		opts.mcpFileServers = cfg.MCP.Servers
+	}
 	// prompts (settings tier) are additive with --prompt-template (CLI tier,
 	// wired in #339), so they are always passed through when present.
 	if len(cfg.Prompts) > 0 {
@@ -460,7 +482,7 @@ func dispatch(ctx context.Context, opts cliOptions, out, errOut io.Writer) int {
 			fmt.Fprintln(errOut, "pigo: no prompt (use -p \"...\" or positional args)")
 			return 2
 		}
-		env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools))
+		env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools), opts.mcpSettings())
 		if err != nil {
 			fmt.Fprintf(errOut, "pigo: %v\n", err)
 			return setupExitCode(err)
@@ -470,6 +492,9 @@ func dispatch(ctx context.Context, opts cliOptions, out, errOut io.Writer) int {
 		}
 		if env.Memory != nil {
 			defer env.Memory.Close()
+		}
+		if env.MCP != nil {
+			defer env.MCP.Close()
 		}
 		thinking, err := run.ResolveThinkingLevel(opts.thinkingLevel)
 		if err != nil {
@@ -536,7 +561,7 @@ func dispatch(ctx context.Context, opts cliOptions, out, errOut io.Writer) int {
 		return 2
 	}
 
-	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools))
+	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools), opts.mcpSettings())
 	if err != nil {
 		fmt.Fprintf(errOut, "pigo: %v\n", err)
 		return setupExitCode(err)
@@ -569,6 +594,16 @@ func setupExitCode(err error) int {
 	return 1
 }
 
+// mcpSettings resolves the MCP tiers from the parsed options: the --no-mcp
+// master switch, the --mcp-config path, and the config.toml [mcp] servers.
+func (o cliOptions) mcpSettings() run.MCPSettings {
+	return run.MCPSettings{
+		Disabled:   o.noMCP,
+		ConfigPath: o.mcpConfigPath,
+		Servers:    o.mcpFileServers,
+	}
+}
+
 // runDream executes the subprocess memory-consolidation pass (SPEC §4.1/§4.2).
 // It runs dream.Runner to completion, marshals the resulting Report as a single
 // line of JSON on stdout (the parent/scheduler parses this), and returns the
@@ -587,7 +622,7 @@ func runGitHubReview(ctx context.Context, opts cliOptions, errOut io.Writer) int
 		fmt.Fprintf(errOut, "pigo: --github-review requires a webhook secret in $%s\n", opts.githubWebhookSecretEnv)
 		return 2
 	}
-	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools))
+	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools), opts.mcpSettings())
 	if err != nil {
 		fmt.Fprintf(errOut, "pigo: %v\n", err)
 		return setupExitCode(err)
@@ -642,7 +677,7 @@ func runGitLabReview(ctx context.Context, opts cliOptions, errOut io.Writer) int
 		fmt.Fprintf(errOut, "pigo: --gitlab-review requires a webhook token in $%s\n", opts.gitlabWebhookTokenEnv)
 		return 2
 	}
-	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools))
+	env, err := run.SetupEnv(opts.model, opts.baseURL, opts.protocol, opts.provider, opts.apiKey, opts.noTools, opts.noSkills, opts.systemPrompt, opts.appendSystemPrompt, opts.memory.Memory.Enabled, run.NewToolPolicy(opts.allowedTools, opts.disallowedTools), opts.mcpSettings())
 	if err != nil {
 		fmt.Fprintf(errOut, "pigo: %v\n", err)
 		return setupExitCode(err)

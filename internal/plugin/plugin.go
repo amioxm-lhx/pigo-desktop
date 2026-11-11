@@ -175,6 +175,12 @@ func (t *pluginTool) ExecutionMode() agentcore.ToolExecutionMode {
 	return agentcore.ToolExecutionSequential
 }
 
+// HasSideEffects implements agentcore.SideEffectDeclarer. Plugin tools run in a
+// separate process with unknown effects, so they are always trust-gated in
+// untrusted directories — their names are not in the built-in SideEffectTools
+// name table, so without this declaration they would bypass the gate entirely.
+func (t *pluginTool) HasSideEffects() bool { return true }
+
 // Execute implements AgentTool by forwarding the call to the plugin process. A
 // transport error (e.g. the plugin crashed) is isolated: it degrades to an error
 // result so a dead plugin cannot take down the agent loop.
