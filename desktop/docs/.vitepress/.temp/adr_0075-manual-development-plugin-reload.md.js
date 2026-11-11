@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0075: Manual reload for development-plugin permission ceilings","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0075-manual-development-plugin-reload.md","filePath":"adr/0075-manual-development-plugin-reload.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0075-manual-development-plugin-reload.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0075-manual-reload-for-development-plugin-permission-ceilings" tabindex="-1">ADR 0075: Manual reload for development-plugin permission ceilings <a class="header-anchor" href="#adr-0075-manual-reload-for-development-plugin-permission-ceilings" aria-label="Permalink to &quot;ADR 0075: Manual reload for development-plugin permission ceilings&quot;">​</a></h1><ul><li>Status: Accepted</li><li>Date: 2026-08-12</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>Development plugins are watched and hot-reloaded from their local folders. The watcher intentionally refuses a manifest that adds permissions beyond the ceiling approved when the folder was loaded. Before this action existed, the developer had to load the folder again through the picker to review the changed manifest and resume development.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><p>Add a renderer-to-main <code>pi-desktop/plugin/reload</code> invoke channel. Electron main resolves the plugin id through the host registry, loads the registered path with the registry&#39;s current permissions, and re-arms the development watcher after a successful load. The Plugins page exposes the action only for <code>source: &quot;dev&quot;</code> rows and refreshes its list after the invoke completes.</p><p>The automatic watcher remains conservative: it cannot widen the permission ceiling. A manual reload is an explicit developer action that acknowledges the current manifest and makes its declared permissions the new ceiling for later automatic reloads.</p><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Developers can recover from permission-gated hot reloads without re-picking a folder.</li><li>Installed and marketplace plugins do not gain a manual reload control.</li><li>The existing watcher, plugin runtime, and host-core storage contracts remain unchanged; the new channel is an additive Electron IPC surface.</li></ul><h2 id="alternatives-considered" tabindex="-1">Alternatives considered <a class="header-anchor" href="#alternatives-considered" aria-label="Permalink to &quot;Alternatives considered&quot;">​</a></h2><ul><li>Reusing the folder picker: rejected because it repeats path selection and makes recovery needlessly disruptive.</li><li>Allowing automatic reloads to widen permissions: rejected because file edits must not silently grant new capabilities.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0075-manual-development-plugin-reload.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0075ManualDevelopmentPluginReload = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0075ManualDevelopmentPluginReload as default
+};

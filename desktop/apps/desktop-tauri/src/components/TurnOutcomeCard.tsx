@@ -27,7 +27,7 @@ export function TurnOutcomeCard({
   const { t } = useTranslation();
   const sendPrompt = useAppStore((state) => state.sendPrompt);
 
-  if (!result || result.status === "completed") return null;
+  if (!result) return null;
 
   const tail = latestTurnMessages(messages);
   const hasInlineError = tail.some((message) => Boolean(message.error));
@@ -42,6 +42,19 @@ export function TurnOutcomeCard({
   );
 
   if (!hasVisibleTurn) return null;
+
+  // A turn the runtime reports as completed can still carry no answer at all:
+  // the agent loop may settle after its last tool call (a stop, an empty model
+  // response, a dropped final stream) and record `completed` with nothing to
+  // read. The settled activity group then collapses to one summary line, so
+  // the transcript reads as if the reply vanished. Say so instead, and offer
+  // the same continuation the failure card offers — the work above is still in
+  // the transcript, only folded away.
+  const answered = tail.some(
+    (message) =>
+      message.role === "assistant" && Boolean((message.content || "").trim()),
+  );
+  if (result.status === "completed" && answered) return null;
 
   return (
     <section

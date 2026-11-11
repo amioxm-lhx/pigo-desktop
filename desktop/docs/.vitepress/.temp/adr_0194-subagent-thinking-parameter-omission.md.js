@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0194: Optional subagent thinking override","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0194-subagent-thinking-parameter-omission.md","filePath":"adr/0194-subagent-thinking-parameter-omission.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0194-subagent-thinking-parameter-omission.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0194-optional-subagent-thinking-override" tabindex="-1">ADR 0194: Optional subagent thinking override <a class="header-anchor" href="#adr-0194-optional-subagent-thinking-override" aria-label="Permalink to &quot;ADR 0194: Optional subagent thinking override&quot;">​</a></h1><ul><li>Status: Accepted for implementation</li><li>Date: 2026-09-09</li><li>Deciders: PI-Desktop runtime and UX maintainers</li><li>Related: D356, E2E-203, ADR 0062, ADR 0063, ADR 0144</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>The subagent editor previously offered inheritance and explicit thinking levels, but no way to leave the provider&#39;s default untouched. The normal provider-neutral stream path can translate the agent&#39;s <code>off</code> state into an explicit provider setting. That is not equivalent to omitting a thinking parameter for endpoints whose own default should remain in control. The model configuration thinking chips also used a raised dark-theme fill with too little contrast against their track.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><ol><li>Subagent frontmatter and input accept <code>thinkingLevel: omit</code> in addition to the empty inherit value and the seven canonical levels. The value is stored in frontmatter and is scoped to subagents; session and model thinking-level lists remain canonical.</li><li>The runtime represents <code>omit</code> as the agent&#39;s bookkeeping <code>off</code> state, but uses pi-ai&#39;s low-level stream for the provider request so no provider-neutral thinking override is synthesized. Explicit <code>off</code> continues through the normal simple stream path.</li><li>Selected model-configuration thinking chips use the accent background and inverted primary text in both themes.</li><li>This is an additive frontmatter/API value. It requires no SQLite migration, protocol version bump, or change to capability enablement storage.</li></ol><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Users can distinguish inherit, explicit off, and no provider override.</li><li>Existing definitions remain valid and retain their current behavior.</li><li>Provider adapters remain responsible for deciding their default behavior when the subagent selects <code>omit</code>.</li><li>The selected chip state is more legible in dark mode while staying aligned with the existing accent tokens.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0194-subagent-thinking-parameter-omission.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0194SubagentThinkingParameterOmission = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0194SubagentThinkingParameterOmission as default
+};

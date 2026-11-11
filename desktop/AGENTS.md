@@ -71,24 +71,22 @@ Never hide behavior changes inside a `refactor` commit.
 The frozen process model is:
 
 ```text
-Renderer
+Renderer (React / WebView)
    ↓
-Preload IPC
+Tauri IPC (invoke / events)
    ↓
-Electron Main
+Tauri Shell (Rust, src-tauri)
    ↓
-Rust Host Core / Node Agent Runtime
-   ↓
-pi-ai / pi-agent-core
+Rust Host Core / Go Agent Sidecar
 ```
 
 Ownership rules:
 
 ```text
 Renderer       = UI and interaction
-Electron Main  = thin orchestrator
+Tauri Shell    = window, IPC and orchestration
 Rust Host Core = persistence and authoritative host/native state
-Agent Runtime  = agent execution
+Agent Sidecar  = agent execution (Go)
 Plugin SDK     = extension contract
 Shared         = cross-boundary contracts and schemas
 ```
@@ -96,10 +94,10 @@ Shared         = cross-boundary contracts and schemas
 Mandatory boundaries:
 
 * Renderer must not access SQLite directly.
-* Renderer must not depend on Electron Main implementation internals.
+* Renderer must not depend on Tauri shell implementation internals.
 * SQLite remains owned exclusively by Rust host-core.
 * Agent execution must not move into the renderer.
-* Electron Main must remain a thin orchestrator.
+* The Tauri shell must remain a thin orchestrator.
 * Shared packages must not depend on desktop implementation code.
 * Plugin permissions and sandbox boundaries must not be bypassed.
 

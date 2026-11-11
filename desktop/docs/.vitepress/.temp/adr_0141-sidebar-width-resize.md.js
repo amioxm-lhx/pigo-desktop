@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0141: Make Expanded Sidebar Width User-Resizable","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0141-sidebar-width-resize.md","filePath":"adr/0141-sidebar-width-resize.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0141-sidebar-width-resize.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0141-make-expanded-sidebar-width-user-resizable" tabindex="-1">ADR 0141: Make Expanded Sidebar Width User-Resizable <a class="header-anchor" href="#adr-0141-make-expanded-sidebar-width-user-resizable" aria-label="Permalink to &quot;ADR 0141: Make Expanded Sidebar Width User-Resizable&quot;">​</a></h1><ul><li>Status: Accepted</li><li>Date: 2026-09-01</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>The sidebar&#39;s fixed expanded width makes long project names and session titles hard to inspect, while a permanently wider sidebar wastes space for compact workspaces. The shell already owns sidebar layout and collapse state, so width preference state belongs at the same renderer boundary.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><p>The expanded sidebar exposes a resize handle on its right edge. Pointer motion previews a width anchored to the pointer-down position and the main pane reflows continuously. The width is rounded and clamped to <code>240px..520px</code>, with a <code>275px</code> default; only pointer release persists the preferred width under the sidebar renderer preference storage.</p><p>The handle is an ARIA vertical separator. It supports ArrowLeft/ArrowRight with 16px steps, Home, and End. Keyboard changes commit immediately. Escape, pointer cancellation, lost ownership, and component unmount restore the width captured at pointer-down. Collapsing the sidebar preserves the preferred expanded width.</p><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Users can choose a comfortable sidebar width without changing native window bounds or work-panel reservation behavior.</li><li>The renderer remains the sole owner of sidebar width, avoiding a new IPC contract and keeping native window edge resize independent.</li><li>A small edge hit area and visible focus/hover rule add a discoverable control without changing the dense sidebar row layout.</li></ul><h2 id="alternatives-considered" tabindex="-1">Alternatives considered <a class="header-anchor" href="#alternatives-considered" aria-label="Permalink to &quot;Alternatives considered&quot;">​</a></h2><ul><li>Fixed width: rejected because it prevents users from accommodating long project/session labels or reclaiming unused sidebar space.</li><li>Native window reservation or a second resize channel: rejected because the sidebar is an in-flow renderer column and its width should only reflow the main pane.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0141-sidebar-width-resize.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0141SidebarWidthResize = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0141SidebarWidthResize as default
+};

@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0228: Long-press the project title to reorder","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0228-long-press-project-title-reorder.md","filePath":"adr/0228-long-press-project-title-reorder.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0228-long-press-project-title-reorder.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0228-long-press-the-project-title-to-reorder" tabindex="-1">ADR 0228: Long-press the project title to reorder <a class="header-anchor" href="#adr-0228-long-press-the-project-title-to-reorder" aria-label="Permalink to &quot;ADR 0228: Long-press the project title to reorder&quot;">​</a></h1><ul><li>Status: Accepted (amended by 0229)</li><li>Date: 2026-09-11</li><li>Amends: <a href="./0227-project-group-manual-ordering">ADR 0227</a></li><li>Related: <a href="./../spec/08-meta/decisions-log">D402</a> · <a href="./../spec/04-ux/08-component-spec">Component spec</a> · E2E-253</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>ADR 0227 added renderer-local manual project order behind a hover/focus grip. The grip consumed a leading column, stayed hidden until hover, and made reorder a second control beside the title that already selects and collapses the group.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><p>Retained project groups no longer render a reorder grip. The project title is the reorder control:</p><ul><li>A still press of 400ms on the title arms a pointer reorder. Pointer movement beyond 8px before that delay cancels the press so a click still activates the project and toggles collapse.</li><li>After the title is armed, moving the pointer highlights another group in the same pinned/archived bucket; release inserts before or after that group from the pointer&#39;s vertical midpoint. Escape cancels without writing order.</li><li>ArrowUp/ArrowDown on the focused title remains the keyboard path.</li><li>Persistence is unchanged: contiguous normalized-path <code>order</code> values and <code>projectSort: &quot;manual&quot;</code> in renderer-local sidebar preferences.</li></ul><p>The title&#39;s path tooltip dismisses on press so it does not cover the drag. Session-to-project HTML5 drops and native folder drops are unchanged.</p><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Reorder no longer needs a dedicated visible handle.</li><li>Long-press is the pointer disambiguation for a title that also clicks.</li><li>Keyboard users keep ArrowUp/ArrowDown on the same title button.</li></ul><h2 id="references" tabindex="-1">References <a class="header-anchor" href="#references" aria-label="Permalink to &quot;References&quot;">​</a></h2><ul><li><code>apps/desktop/src/components/Sidebar.tsx</code></li><li><code>apps/desktop/src/lib/sidebar-project-reorder.ts</code></li><li><code>apps/desktop/test/sidebar-project-reorder.test.mjs</code></li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0228-long-press-project-title-reorder.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0228LongPressProjectTitleReorder = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0228LongPressProjectTitleReorder as default
+};

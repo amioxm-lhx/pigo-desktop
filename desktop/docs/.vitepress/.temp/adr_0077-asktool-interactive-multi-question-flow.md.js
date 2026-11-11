@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0077: Add an interactive multi-question asktool","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0077-asktool-interactive-multi-question-flow.md","filePath":"adr/0077-asktool-interactive-multi-question-flow.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0077-asktool-interactive-multi-question-flow.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0077-add-an-interactive-multi-question-asktool" tabindex="-1">ADR 0077: Add an interactive multi-question asktool <a class="header-anchor" href="#adr-0077-add-an-interactive-multi-question-asktool" aria-label="Permalink to &quot;ADR 0077: Add an interactive multi-question asktool&quot;">​</a></h1><ul><li>Status: Accepted for implementation</li><li>Date: 2026-08-12</li><li>Deciders: PI-Desktop core</li><li>Related: E2E-123</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>The model needs a structured way to collect several user decisions without turning them into chat prose or permission approvals. The user may answer one question at a time, choose multiple options, provide custom text, skip a question, or decline the complete prompt. An unanswered response still needs a stable tool output so the model can distinguish it from a missing tool result.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><ol><li>Add a built-in <code>asktool</code> to every operating mode. It emits a typed <code>asktool_request</code> event and pauses the runtime until the renderer resolves the request through <code>pi-desktop/agent/askTool/resolve</code>.</li><li>The request carries an ordered array of question text, option labels, and an optional multi-select flag. The renderer always supplies a custom text-input option, regardless of the model&#39;s option list.</li><li>The renderer owns draft selection state and displays one question at a time. Skip and decline resolve to <code>null</code>; answer arrays carry selected labels and custom text. The card is mounted in the shared composer approval surface used by Plan and Goal approvals. There is no asktool timeout or expiry.</li><li>The runtime formats the resolved values as normal tool content: each line is <code>question：answer</code>, multiple questions use <code>\\n---\\n</code>, and null answers use an empty value after the separator.</li></ol><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>The model receives a deterministic, compact tool result rather than UI state.</li><li>The interactive wait is outside host permission policy and cannot grant a workspace capability.</li><li>The request is additive to the existing agent event envelope and does not require a protocol version bump.</li><li>Aborting a turn completes the outstanding tool call with skipped values so a pending card cannot strand the runtime.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0077-asktool-interactive-multi-question-flow.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0077AsktoolInteractiveMultiQuestionFlow = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0077AsktoolInteractiveMultiQuestionFlow as default
+};

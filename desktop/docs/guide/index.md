@@ -27,12 +27,12 @@ to read the localized orientation and jump into the matching topic map.
 ## The mental model
 
 ```text
-Renderer UI  →  Electron orchestration  →  Rust host core
-      ↓                    ↓                       ↓
-  transcript          pi Node sidecar          SQLite + processes
+Renderer UI  →  Tauri Shell (Rust)  →  Rust host core
+      ↓                 ↓                      ↓
+  transcript       Go agent sidecar      SQLite + processes
 ```
 
-The renderer owns presentation. Electron main coordinates desktop capabilities:
+The renderer owns presentation. The Tauri shell coordinates desktop capabilities:
 window lifecycle, IPC routing, process supervision, the update client, and the
 plugin, MCP-bridge, and optional loopback MCP-control services. The Rust host
 owns tool execution and the workspace sandbox, the permission gateway, plugin

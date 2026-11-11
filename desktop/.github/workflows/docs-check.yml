@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # Same Node as ci.yml (matches the runtime Electron 43 bundles).
+          # Same Node as ci.yml.
           node-version: 24
           cache: pnpm
 

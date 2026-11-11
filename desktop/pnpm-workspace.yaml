@@ -7,11 +7,9 @@ packages:
 # refreshing them. Pin the intent: `pnpm update` means "newest within range".
 resolutionMode: highest
 allowBuilds:
-  electron: true
   esbuild: true
   '@google/genai': true
   protobufjs: true
-  electron-winstaller: true
 # Advisory fixes for transitives whose parents still resolve the vulnerable
 # version. Drop each one once its parent ships a release that resolves the
 # patched version on its own.
@@ -19,11 +17,11 @@ overrides:
   # Ships in the app. mermaid allows ^3.3.3 but resolves its own copy, so the
   # renderer would load an unpatched sanitizer next to our patched one.
   dompurify@3: '>=3.4.13 <4' # detached-subtree XSS, via mermaid
-  # Build toolchain only (electron-builder, node-gyp) — never reaches users.
+  # Build toolchain only (node-gyp and packaging transitives) — never reaches users.
   # Kept current so `pnpm audit` stays quiet and a finding that *does* reach
   # users stands out.
   brace-expansion@1: '>=1.1.17 <2' # GHSA via minimatch@3
-  brace-expansion@2: '>=2.1.4 <3' # GHSA via @electron/universal, jake
+  brace-expansion@2: '>=2.1.4 <3' # GHSA via jake
   brace-expansion@5: '>=5.0.9 <6' # GHSA via app-builder-lib
   fast-uri@3: '>=3.1.5 <4' # GHSA via ajv@8
   undici@6: '>=6.28.0 <7' # GHSA via node-gyp@12

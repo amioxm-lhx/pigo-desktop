@@ -14,15 +14,10 @@ apps/desktop/build/icon.iconset/
 target/
 *.tsbuildinfo
 apps/desktop/out/
-apps/desktop/dist-electron/
 apps/desktop/release/
 packages/*/dist/
 packages/*/dist-bundle/
 
-# electron-builder's Windows NSIS and portable targets leave a 0-byte file
-# literally named "{}" in the app directory. It carries no content and is not
-# part of the package, so it is ignored rather than committed by accident.
-apps/desktop/{}
 
 # Local design-source exports
 docs/image/pi_logo.png
@@ -53,4 +48,3 @@ coverage/
 .playwright-mcp/
 .claude/
 .workbuddy
-electron.vite.config.*.mjs

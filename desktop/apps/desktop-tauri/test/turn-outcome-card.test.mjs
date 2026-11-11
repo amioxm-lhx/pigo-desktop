@@ -60,3 +60,17 @@ test("outcome card yields to an inline assistant error", () => {
   );
   assert.match(outcome, /if \(hasInlineError\) return null;/);
 });
+
+test("outcome card speaks for a completed turn that produced no answer", () => {
+  // The runtime can settle a turn as completed after its last tool call, with
+  // no assistant text at all; the settled activity group then folds to one
+  // summary line and the transcript reads as if the reply vanished.
+  assert.match(
+    outcome,
+    /const answered = tail\.some\([\s\S]*?message\.role === "assistant"[\s\S]*?\);/,
+  );
+  assert.match(
+    outcome,
+    /if \(result\.status === "completed" && answered\) return null;/,
+  );
+});

@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0227: Project group manual ordering","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0227-project-group-manual-ordering.md","filePath":"adr/0227-project-group-manual-ordering.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0227-project-group-manual-ordering.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0227-project-group-manual-ordering" tabindex="-1">ADR 0227: Project group manual ordering <a class="header-anchor" href="#adr-0227-project-group-manual-ordering" aria-label="Permalink to &quot;ADR 0227: Project group manual ordering&quot;">​</a></h1><ul><li>Status: Accepted (amended by 0228)</li><li>Date: 2026-09-11</li><li>Amends: <a href="./0016-sidebar-organization-and-multi-project-tabs">ADR 0016</a></li><li>Related: <a href="./../spec/08-meta/decisions-log">D399</a> · <a href="./../spec/08-meta/decisions-log">D402</a> · <a href="./../spec/04-ux/08-component-spec">Component spec</a> · E2E-253</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>Retained project groups need a stable working order that is independent of recent activity and alphabetical names. The existing sidebar organization is renderer-owned presentation state, while project paths, selected workspace identity, session ownership, and tool roots remain host-owned.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><p>Project groups expose a hover/focus-visible reorder grip. Native drag/drop and ArrowUp/ArrowDown on the grip write contiguous non-negative integer <code>order</code> values keyed by normalized project path and select the renderer-local <code>manual</code> project sort. Reordering is allowed only within the same archived/pinned priority bucket; those priority rules remain ahead of manual order.</p><p>The interaction is presentation-only. It does not move directories, change the selected host workspace, change session ordering, or change durable session project membership. Escape cancels a drag without consulting stale transfer payload data. Invalid legacy ranks are ignored and fall back to stable path order.</p><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Users can keep repositories in a stable personal order across renderer restarts.</li><li>Renderer localStorage remains the only persistence surface; no IPC, host RPC, schema, or migration is required.</li><li>Priority boundaries make cross-bucket drops and keyboard moves no-ops instead of producing an order that the comparator immediately overrides.</li></ul><h2 id="references" tabindex="-1">References <a class="header-anchor" href="#references" aria-label="Permalink to &quot;References&quot;">​</a></h2><ul><li><code>apps/desktop/src/components/Sidebar.tsx</code></li><li><code>apps/desktop/src/lib/sidebar-preferences.ts</code></li><li><code>apps/desktop/test/sidebar-preferences.test.mjs</code></li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0227-project-group-manual-ordering.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0227ProjectGroupManualOrdering = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0227ProjectGroupManualOrdering as default
+};

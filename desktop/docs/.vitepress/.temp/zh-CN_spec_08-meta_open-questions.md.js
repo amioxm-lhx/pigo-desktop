@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"开放式问题","description":"","frontmatter":{},"headers":[],"relativePath":"zh-CN/spec/08-meta/open-questions.md","filePath":"zh-CN/spec/08-meta/open-questions.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "zh-CN/spec/08-meta/open-questions.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="开放式问题" tabindex="-1">开放式问题 <a class="header-anchor" href="#开放式问题" aria-label="Permalink to &quot;开放式问题&quot;">​</a></h1><blockquote><p><strong>翻译说明：</strong> 本页是与 <a href="/spec/08-meta/open-questions">英文源规格</a> 一一对应的机器辅助翻译。代码、协议字段和标识符保持原文；如翻译与英文源事实有歧义，以英文版本为准。</p></blockquote><blockquote><p>已按基线 <code>0.4.16</code>（自定义全局界面字体）更新。 冻结的决策位于 <a href="/zh-CN/spec/08-meta/decisions-log">decisions-log.md</a> 中；已解决 物品会移动到那里而不是停留在这里。</p></blockquote><h2 id="最近解决-参见决策日志" tabindex="-1">最近解决（参见决策日志） <a class="header-anchor" href="#最近解决-参见决策日志" aria-label="Permalink to &quot;最近解决（参见决策日志）&quot;">​</a></h2><ul><li>Sidecar 打包格式 → Electron 二进制文件上的 <code>ELECTRON_RUN_AS_NODE</code> (D008)</li><li>代码签名/公证操作设置 → 双通道 + 发布运行手册 (D072)</li><li>应用程序图标/品牌标记 v1 → 具有派生 ICNS 的规范 <code>build/icon_1024.png</code> （D079）；渲染器身份和共享 <code>BrandLogo</code> 用法 → D094</li><li>zh-CN 语言环境时间轴 → zh-CN 字符串与英语一起提供，并且是 由 UI e2e 场景断言（英语仍然是源语言）</li><li>应用程序更新所有权和交付模式 → D120 / ADR 0022</li></ul><h2 id="仍然开放" tabindex="-1">仍然开放 <a class="header-anchor" href="#仍然开放" aria-label="Permalink to &quot;仍然开放&quot;">​</a></h2><h3 id="发布-分发-首次发布后" tabindex="-1">发布/分发（首次发布后） <a class="header-anchor" href="#发布-分发-首次发布后" aria-label="Permalink to &quot;发布/分发（首次发布后）&quot;">​</a></h3><ol><li>何时公开发布源或将其替换为经过身份验证的 端点无需传送客户端凭证</li><li>DMG之外的分发（Homebrew cask？直接下载页面？）</li><li>签名Windows/macOS应用内安装、Linux发布、回滚和 stable/prerelease 推出政策</li></ol><h3 id="市场-后-mvp" tabindex="-1">市场（后 MVP） <a class="header-anchor" href="#市场-后-mvp" aria-label="Permalink to &quot;市场（后 MVP）&quot;">​</a></h3><ol><li>官方市场域名和提供商 ID</li><li>是否默认启用第三方源</li><li>私有源身份验证：令牌标头与 mTLS</li><li><code>.zip</code> 是否与 <code>.piplug</code> 一起仍然被接受</li></ol><h3 id="插件高级策略" tabindex="-1">插件高级策略 <a class="header-anchor" href="#插件高级策略" aria-label="Permalink to &quot;插件高级策略&quot;">​</a></h3><ol><li>何时强制执行严格的独立进程插件运行时（ADR 0008 目标）</li><li>未来的插件设置是否可能包含特殊存储下的秘密字段</li><li>除了硬默认删除之外，可选的“卸载时保留数据”UX copy/defaults</li><li><code>ui.panel</code> 贡献是否暗示获得小组许可还是必须声明 （从 07-plugins/02-plugin-manifest-schema 追踪）</li></ol><h3 id="提供商-模型" tabindex="-1">提供商/模型 <a class="header-anchor" href="#提供商-模型" aria-label="Permalink to &quot;提供商/模型&quot;">​</a></h3><ol><li>远程目录分发渠道（签名应用程序更新与专用目录源）</li><li>是否发布大型多供应商捆绑目录或精简 + 按需刷新</li><li>Azure 部署名称 UX 详细信息与原始模型 ID</li><li>MVP 中超越 aws_sdk_default 的基础 region/profile 高级 UI</li></ol><h3 id="工具" tabindex="-1">工具 <a class="header-anchor" href="#工具" aria-label="Permalink to &quot;工具&quot;">​</a></h3><ol><li>JS linter 选择（biome vs oxlint）——样式标记已经由 <code>scripts/check-style-tokens.mjs</code>；一般的 linter 仍未被挑选</li></ol><h2 id="决策规则" tabindex="-1">决策规则 <a class="header-anchor" href="#决策规则" aria-label="Permalink to &quot;决策规则&quot;">​</a></h2><ul><li>冻结的决定转到 <code>decisions-log.md</code>（D 条目）</li><li>架构边界更改需要 ADR</li><li>非阻塞抛光保留在这里，直到实施临近</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("zh-CN/spec/08-meta/open-questions.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const openQuestions = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  openQuestions as default
+};

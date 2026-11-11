@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"05. Onboarding","description":"","frontmatter":{},"headers":[],"relativePath":"spec/04-ux/05-onboarding.md","filePath":"spec/04-ux/05-onboarding.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "spec/04-ux/05-onboarding.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="_05-onboarding" tabindex="-1">05. Onboarding <a class="header-anchor" href="#_05-onboarding" aria-label="Permalink to &quot;05. Onboarding&quot;">​</a></h1><h2 id="_1-decision-for-mvp" tabindex="-1">1. Decision for MVP <a class="header-anchor" href="#_1-decision-for-mvp" aria-label="Permalink to &quot;1. Decision for MVP&quot;">​</a></h2><p>Use an <strong>inline first-run checklist</strong>, not a multi-page modal wizard.</p><p>Reasons:</p><ul><li>faster to first value</li><li>less blocking</li><li>easier to skip/return</li></ul><h2 id="_2-first-run-detection" tabindex="-1">2. First-run detection <a class="header-anchor" href="#_2-first-run-detection" aria-label="Permalink to &quot;2. First-run detection&quot;">​</a></h2><p>Show checklist when any of these is true:</p><ol><li>no provider configured</li><li>no secret present for default provider</li><li>no session exists yet</li></ol><p>Persist dismissal state, but incomplete critical steps can reappear as banners.</p><h2 id="_3-checklist-steps" tabindex="-1">3. Checklist steps <a class="header-anchor" href="#_3-checklist-steps" aria-label="Permalink to &quot;3. Checklist steps&quot;">​</a></h2><ol><li><strong>Add a provider</strong></li><li><strong>Save an API key</strong></li><li><strong>Open a project folder</strong></li><li><strong>Send your first prompt</strong></li><li><em>(Optional)</em> Load a development plugin</li></ol><h2 id="_4-placement" tabindex="-1">4. Placement <a class="header-anchor" href="#_4-placement" aria-label="Permalink to &quot;4. Placement&quot;">​</a></h2><ul><li>shown in main chat empty state</li><li>provider and key items deep-link to Settings → Agent</li><li>the optional plugin item opens the app shell&#39;s Plugins destination</li><li>project and prompt items invoke their relevant app actions</li><li>checklist collapses after core steps complete</li></ul><h2 id="_5-copy-tone" tabindex="-1">5. Copy tone <a class="header-anchor" href="#_5-copy-tone" aria-label="Permalink to &quot;5. Copy tone&quot;">​</a></h2><p>English source, concise, action-oriented.</p><p>Example:</p><ul><li>“Add a model provider”</li><li>“Save your API key”</li><li>“Open a project to enable local tools”</li></ul><h2 id="_6-non-goals" tabindex="-1">6. Non-goals <a class="header-anchor" href="#_6-non-goals" aria-label="Permalink to &quot;6. Non-goals&quot;">​</a></h2><ul><li>account signup</li><li>cloud sync setup</li><li>long product tour overlays</li><li>forced tutorial for returning users</li></ul><h2 id="_7-acceptance" tabindex="-1">7. Acceptance <a class="header-anchor" href="#_7-acceptance" aria-label="Permalink to &quot;7. Acceptance&quot;">​</a></h2><ol><li>Fresh profile shows checklist</li><li>Completing provider+key+prompt removes critical empty-state blocker</li><li>User can dismiss optional parts without breaking app use</li></ol></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("spec/04-ux/05-onboarding.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _05Onboarding = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _05Onboarding as default
+};

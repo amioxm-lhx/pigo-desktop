@@ -23,7 +23,7 @@ A plugin can contribute one or more of these capabilities:
 | Message bus | Typed-by-convention events between plugins | `contributes.bus`, bus permissions |
 
 Plugin entry code runs in a dedicated Node process. Panels run in sandboxed,
-context-isolated Electron windows with no Node integration. Calls from either
+context-isolated renderer iframes with no Node integration. Calls from either
 surface cross a host-owned permission gateway.
 
 > **Trust boundary:** the permission model gates the `pi.*` host API and panel
@@ -241,7 +241,7 @@ viewport-height calculations as well:
 ```
 
 The panel does not receive the global `pi` object. It receives only
-`window.pluginBridge`, and arbitrary Electron IPC channels are unavailable.
+`window.pluginBridge`, and arbitrary Tauri IPC channels are unavailable.
 
 ## 6. Add capabilities
 
@@ -405,7 +405,7 @@ the root itself. `net.fetch` accepts HTTP(S) and only reaches hosts listed in
 `pi.ui.notify` shows an in-app Toast. Native notifications are opt-in: call
 `pi.ui.requestNotificationPermission()` before
 `pi.ui.showNativeNotification(...)`. The returned permission is best-effort
-because Electron does not expose a cross-platform read-only OS permission API;
+because the desktop shell does not expose a cross-platform read-only OS permission API;
 `unknown` means the platform has not reported a result yet, and
 `unsupported` means desktop notifications are unavailable. Native plugin
 notifications are not added to PI-Desktop's durable task notification inbox.
@@ -732,9 +732,8 @@ What to know before you use it:
   then runs `npm ci` with the same safety flags. Direct dependency specs are
   checked across production, optional, dev, and peer fields; git resolution is
   disabled, and no third-party lifecycle script runs. A native module that
-  needs a build script fails with a diagnostic — rebuild it against Electron
-  headers (`npx @electron/rebuild -v <electron version>`) inside the plugin
-  directory to fix it. Failed installs clean partial dependencies and report a
+  needs a build script fails with a diagnostic — rebuild it against the host's
+  Node ABI (`npm rebuild`) inside the plugin directory to fix it. Failed installs clean partial dependencies and report a
   warning toast without blocking the import; the row shows a load error only if
   the extension actually fails to load.
 

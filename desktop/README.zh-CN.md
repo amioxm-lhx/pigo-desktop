@@ -430,12 +430,6 @@ Ubuntu 20.04、Debian 11、Fedora 35 以及更旧的发行版无法加载当前 
 ldd --version
 ```
 
-Linux 同时提供 `.asar` 资产，方便使用系统 Electron 重新打包：
-
-```bash
-electron PI-Desktop-<version>-linux-x64.asar
-```
-
 目标发行版仍需要准备对应的 native host 和 packaged resources。
 
 </details>
@@ -502,19 +496,19 @@ PI-Desktop 刻意把 UI、桌面高权限能力与 Agent Loop 分开。
 ```mermaid
 flowchart TB
     UI["React Renderer<br/>Chat · Projects · Reviews · Settings"]
-    Electron["Electron Main<br/>Desktop orchestration"]
+    Shell["Tauri Shell<br/>Desktop orchestration"]
     Rust["Rust Host Core<br/>Permissions · Filesystem · SQLite · Secrets"]
     Agent["pi Agent Sidecar<br/>Agent loop · Models · Streaming"]
     Provider["Model Provider<br/>Cloud or Local"]
 
-    UI --> Electron
-    Electron --> Rust
-    Electron --> Agent
+    UI --> Shell
+    Shell --> Rust
+    Shell --> Agent
     Agent <--> Rust
     Agent --> Provider
 ```
 
-Renderer 不启用 Node integration。
+渲染层运行在 WebView 中，不直接持有 Node 或系统权限。
 
 **Rust Host Core** 负责：
 
@@ -530,7 +524,7 @@ Renderer 不启用 Node integration。
 - Model Interaction
 - Streaming
 
-Electron 负责桌面生命周期与不同组件之间的协调。
+**Tauri Shell** 负责桌面生命周期与不同组件之间的协调。
 
 **[阅读完整架构说明 →](docs/spec/02-architecture/01-architecture.md)**
 
@@ -563,7 +557,7 @@ PI-Desktop 在此基础上增加了：
 - 长任务恢复
 - 跨平台桌面分发
 
-桌面端同时使用了 Electron、React、TypeScript、Rust、SQLite、Vite、Tailwind CSS、Shiki、Mermaid、KaTeX、TypeBox、i18next 等技术。
+桌面端同时使用了 Tauri、React、TypeScript、Rust、SQLite、Vite、Tailwind CSS、Shiki、Mermaid、KaTeX、TypeBox、i18next 等技术。
 
 ---
 
@@ -641,7 +635,7 @@ pnpm lint
 pnpm test
 ```
 
-Protocol、Plan、Supervision、Subagent 与 Electron E2E 等测试说明，可以在仓库 Specification 中查看。
+Protocol、Plan、Supervision、Subagent 与桌面 E2E 等测试说明，可以在仓库 Specification 中查看。
 
 </details>
 

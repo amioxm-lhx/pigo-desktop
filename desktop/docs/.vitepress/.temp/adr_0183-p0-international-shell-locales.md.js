@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0183: P0 international shell locales","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0183-p0-international-shell-locales.md","filePath":"adr/0183-p0-international-shell-locales.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0183-p0-international-shell-locales.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0183-p0-international-shell-locales" tabindex="-1">ADR 0183: P0 international shell locales <a class="header-anchor" href="#adr-0183-p0-international-shell-locales" aria-label="Permalink to &quot;ADR 0183: P0 international shell locales&quot;">​</a></h1><ul><li>Status: Accepted</li><li>Date: 2026-09-08</li><li>Decision owners: PI-Desktop desktop/i18n maintainers</li><li>Related: ADR 0160, ADR 0182, D346, E2E-091</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>The locale registry could add languages without renderer-specific picker work, but the shipped shell stopped at English, Simplified Chinese, Traditional Chinese, and Turkish. Spanish, French, and German are high-value international locales for the desktop product and were missing from the UI catalog and in-app release notes.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><ol><li>Ship complete shell catalogs for <code>de</code>, <code>es</code>, and <code>fr</code>, keeping English as the source catalog and preserving key and interpolation parity.</li><li>Register native names <code>Deutsch</code>, <code>Español</code>, and <code>Français</code>; the searchable picker continues to derive its options from the shared locale registry.</li><li>Resolve <code>de-*</code>, <code>es-*</code>, and <code>fr-*</code> OS locale tags to their shipped base catalogs. Persisted <code>AppSettings.language</code> accepts the three new ids.</li><li>Ship matching product changelog catalogs so release notes follow the active locale. No host protocol, storage schema, or Electron IPC version changes.</li></ol><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Users can select German, Spanish, or French without a renderer reload.</li><li>Locale parity tests cover shell strings, both interpolation styles, and release-note version/highlight parity.</li><li>Regional variants intentionally share one base catalog; region-specific spelling can be added later without changing the picker contract.</li></ul><h2 id="alternatives" tabindex="-1">Alternatives <a class="header-anchor" href="#alternatives" aria-label="Permalink to &quot;Alternatives&quot;">​</a></h2><ul><li>Add only registry rows and fall back to English: rejected because it would advertise languages without localizing the shell.</li><li>Add region-specific catalogs immediately: rejected because the P0 goal is broad coverage with one maintainable catalog per language.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0183-p0-international-shell-locales.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0183P0InternationalShellLocales = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0183P0InternationalShellLocales as default
+};

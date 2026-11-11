@@ -25,12 +25,12 @@ PI-Desktop 是一个本地优先的 AI 编程代理桌面客户端。它让工�
 ## 系统心智模型
 
 ```text
-Renderer UI  →  Electron orchestration  →  Rust host core
-      ↓                    ↓                       ↓
-  transcript          pi Node sidecar          SQLite + processes
+Renderer UI  →  Tauri Shell (Rust)  →  Rust host core
+      ↓                 ↓                      ↓
+  transcript       Go agent sidecar      SQLite + processes
 ```
 
-Renderer 负责呈现；Electron main 协调桌面能力：窗口生命周期、IPC 路由、进程监管、
+Renderer 负责呈现；Tauri Shell 协调桌面能力：窗口生命周期、IPC 路由、进程监管、
 更新客户端，以及插件、MCP 桥接和可选的回环 MCP 控制服务；Rust host 负责工具执行与
 工作区沙箱、权限网关、插件宿主服务、RPC 与持久化；pi sidecar 负责代理循环和模型工作。
 

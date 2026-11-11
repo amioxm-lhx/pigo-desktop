@@ -3,7 +3,7 @@
   "version": "0.14.9",
   "desktopName": "pigo-desktop.desktop",
   "private": true,
-  "description": "pigo-desktop renderer + Tauri shell (the desktop app; Electron was removed)",
+  "description": "pigo-desktop renderer + Tauri shell (the desktop app)",
   "homepage": "https://gitee.com/harvey_danny/pi-agent-go",
   "type": "module",
   "scripts": {

@@ -12,6 +12,66 @@ interactive REPL/TUI.
 ## [Unreleased]
 
 ### Added
+- **Tauri + Rust desktop application**: `desktop/` replaces the Electron shell
+  with a Tauri 2 app (`apps/desktop-tauri`), a Rust `host-core` with SQLite
+  persistence, a Go sidecar, and shared / i18n / plugin-sdk packages.
+- **CLI-parity builtin commands and cross-session lineage**: sixteen
+  implemented first-party commands (`/btw`, `/dream`, `/memory`, `/tree`,
+  `/rewind`, `/export`, `/rebuild`, `/goal`, `/session`, `/status`, ...),
+  session info / tree / side-thread panels, pigo-compatible JSONL export, a DB
+  migration, eight-language i18n, and contract tests. ADR 0256 replaces the
+  five-command freeze with three guardrails.
+- **Pluggable session backends**: a `session.Store` contract with the original
+  JSONL store as the default and an authoritative normalized SQLite backend
+  (`internal/session/sqlite`), plus conformance suites and cross-process file
+  leases.
+- **Session service and embeddable web frontend**: `internal/serve` plus
+  `internal/web`, an `http.Handler` exposing REST session/runtime controls and
+  an SSE run-event stream without owning TLS, auth, or server lifecycle.
+- **GitLab merge-request review webhook**: the read-only review-session
+  contract from GitHub extended to GitLab (`X-Gitlab-Token` constant-time auth,
+  event-UUID replay dedup, draft → ready filtering, optional project filter).
+- **Evaluation harness**: `internal/evals` (agent harness, task sets,
+  baselines, canonical scoring, summaries, artifacts) and the `pigo evals` CLI.
+- **Pluggable telemetry sinks**: the `internal/telemetry` Sink contract with
+  in-memory and no-op implementations and conformance tests, consuming the same
+  `agentcore.TelemetryEvent` the runtime emits.
+- **Path guard for file tools**: `internal/agenttool/pathguard.go` enforcing
+  path boundaries on read / write / edit / search.
+- Runtime: forward request headers through the provider layer and settle
+  no-op compactions.
+- Documentation: project analysis and architecture notes, book chapter updates,
+  `docs/running-guide.md`, and ADR 0256.
+
+### Changed
+- Dropped test files orphaned by the Electron → Tauri migration.
+
+### Fixed
+- Desktop: model switching after adding a model in settings.
+
+## [0.5.6] - 2026-09-12
+
+### Added
+- **Session export and sharing**: `pigo session export` (#570).
+- **Online model discovery**: `/models fetch` (#566).
+- **Session-local reminder scheduler**: `schedule_create` / `schedule_list` /
+  `schedule_delete` (#565).
+- **GitHub PR review webhook**: `ready_for_review` events create read-only
+  review sessions (HMAC-SHA256 verification, delivery-id replay dedup, read /
+  grep / find only) (#567).
+- **Credential reference mode**: `credential = "<name>"` resolves against
+  `~/.pigo/.credentials.yaml`; `*_API_KEY` / `*_TOKEN` / `*_SECRET` / `PIGO_*`
+  are scrubbed from child-process environments (#568).
+- **Versioned telemetry export schema** with golden conformance tests (#569).
+- Documentation: sandboxing and containerization modes (#571) and a refreshed
+  harness capability matrix (#572).
+
+### Fixed
+- Restore the three-argument `RegisterLiveCommands` call in `think_test`.
+
+## [0.5.5] - 2026-09-12
+
+### Added
 - **Tool-level admission control**: `--allowed-tools` / `--disallowed-tools`
   (repeatable, comma-separated, case-insensitive) narrow the tool set handed to
   the model, filling the gap between the full set and `--no-tools`. Deny wins
@@ -20,7 +80,103 @@ interactive REPL/TUI.
   filtering happens at the tool-registration layer — before the side-effect
   confirmation gate — `--approve` waives confirmation prompts but cannot widen
   the boundary. Also configurable as `allowed_tools` / `disallowed_tools` in
-  `config.toml`.
+  `config.toml`. (#555)
+- **Public Go SDK**: the importable `agent` package with runnable examples
+  (#554), plus structured events and custom tools (#563).
+- **Provider presets**: Novita AI as a built-in provider (#556); Fable 5 /
+  GLM-5.3 / DeepSeek Flash, OpenAI GPT-6/5.6 with MiMo/Grok updates, and a
+  Google Gemini preset section.
+- Colored diff rendering for `edit` tool results (#560).
+
+### Changed
+- Book chapters synced with the refactored `internal/cli/*` layout; follow-up
+  review fixes for the SDK (#563).
+- Tool-policy docs: clarify deny-wins across tiers and warn when `--no-tools`
+  is combined with a policy.
+
+### Fixed
+- Bare provider names now resolve to that provider's default model.
+
+## [0.5.4] - 2026-08-02
+
+### Added
+- **Background bash execution**: `bash` gains `run_in_background`, plus the
+  `bash_output` and `kill_bash` tools to read incremental output and terminate
+  background jobs.
+- **`/rewind` edit restore points**: restore files changed by `write`/`edit`
+  back to the state before a selected turn and fork the conversation there
+  (files changed by `bash` are not covered).
+- **`websearch` tool**: online search with an automatically selected backend
+  (`TAVILY_API_KEY` → Tavily, `BRAVE_API_KEY` → Brave, otherwise keyless
+  DuckDuckGo) and `allowed_domains` / `blocked_domains` filters.
+- **`max` reasoning level**: a step above `xhigh` for `--thinking-level` and
+  `/think`.
+
+## [0.5.3] - 2026-08-02
+
+### Added
+- **OpenAI Responses API driver**: non-streaming (#539) and streaming text
+  (#540), tool/function calls (#541), and image input + reasoning (#542).
+  `openai/resp_api` is routed to the driver (#543), extended OpenAI protocol
+  variants are parsed (#538), and DeepSeek now defaults to the Responses
+  protocol.
+- TUI: the startup banner shows the concrete OpenAI wire variant (#544), plus
+  `/status` and `/session` slash commands and surfaced per-turn errors.
+- Documentation for the three OpenAI wire variants (#545).
+
+### Fixed
+- Normalize `--protocol` before the named-provider conflict check.
+- Surface provider errors and empty responses in the interactive REPL loop.
+
+## [0.5.2] - 2026-08-01
+
+### Added
+- **`/dream` memory consolidation**: `[dream]` config table + state + due-check
+  (#519), single-instance `dream.lock` with stale takeover (#520), deterministic
+  consolidation plan and report (#521), a `--dream` subprocess runner with
+  dry-run (#522), LLM-driven Consolidator (merge/prune) with writeback and
+  Reconcile (#523), distilling new memories from recent session JSONL (#524),
+  the `/dream` REPL command with report rendering (#525), and a startup
+  background auto-consolidation trigger (#536).
+- Bilingual `/dream` documentation and a reconcile validation test (#527).
+
+### Fixed
+- Platform-aware shell resolution for the `bash` tool on Windows (#518).
+
+## [0.5.1] - 2026-08-01
+
+### Added
+- **Documentation website rebuild**: a static bilingual (zh/en) site skeleton
+  with shared CSS + i18n (#497), a marketing homepage with hero/nav/footer
+  (#498) and feature sections (#499), plus quickstart (#500), installation
+  (#501), features (#502), configuration (#503), slash commands (#504) and
+  architecture (#505) pages, navigation verification (#506), and a
+  MiMo-inspired visual refresh (#517).
+- Custom-domain `CNAME` and PRD/SPEC planning notes for the website and
+  persistent memory.
+
+## [0.5.0] - 2026-08-01
+
+### Added
+- **Persistent memory and "infinite context"**: SQLite FTS5 storage layer with
+  `Store.Open` (#473), nested `[memory]` / `[checkpoint]` config tables and
+  `compaction.max_context` (#479), path resolution with scope/type and traversal
+  guard (#474), lazy reconcile with size-mtime fingerprints (#475), BM25 search
+  with `buildFtsQuery` and a relative score floor (#476), the `memory_search`
+  tool (#477), a memory-injection reminder provider with a budget (#478),
+  checkpoint persistence + watermark (#480), checkpoint-based context rebuild
+  with `/rebuild` and fallback (#482), session context inheritance via
+  `contextFrom` / `contextWatermark` (#483), loop wiring with checkpoint recall
+  (#481), and the `/memory` command with a memstatus report (#484).
+- `/effect` as an alias of `/think`; a TUI compacting indicator and `/exit` /
+  `/quit` commands.
+
+### Fixed
+- Wire `/remote-control` into the TUI and make LAN IP selection robust.
+
+## [0.4.4] - 2026-08-01
+
+### Added
 - **Self-update**: `pigo update` with no package name (or flags-only calls such
   as `pigo update --check`) now upgrades the pigo binary itself to the latest
   GitHub Release, replacing the executable in place (with a `sudo` hint when the
@@ -28,6 +184,7 @@ interactive REPL/TUI.
 - **Startup upgrade hint**: the TUI banner shows the version row and, when a
   newer release is available, a `Run pigo update to upgrade` hint backed by a
   24h cached background release check. (#467)
+- Initial CHANGELOG covering v0.1.0 through Unreleased.
 
 ### Changed
 - **`pigo update` semantics**: a no-argument `pigo update` no longer updates
@@ -281,7 +438,15 @@ coding agent.
   `provider`, `agenttool`, and `runtime` leaf packages with a verified layering
   DAG. (#74–#79)
 
-[Unreleased]: https://github.com/smallnest/pigo/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/smallnest/pigo/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/smallnest/pigo/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/smallnest/pigo/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/smallnest/pigo/compare/v0.5.3...v0.5.4
+[0.5.3]: https://github.com/smallnest/pigo/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/smallnest/pigo/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/smallnest/pigo/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/smallnest/pigo/compare/v0.4.4...v0.5.0
+[0.4.4]: https://github.com/smallnest/pigo/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/smallnest/pigo/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/smallnest/pigo/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/smallnest/pigo/compare/v0.4.0...v0.4.1

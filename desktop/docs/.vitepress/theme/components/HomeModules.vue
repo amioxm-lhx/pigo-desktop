@@ -14,14 +14,14 @@ const copy = computed(() => isZh.value ? {
   journeyTitle: '先回答你正在解决的问题。',
   journeys: [
     { index: '01', label: 'ORIENT', title: '建立产品模型', text: '先知道当前交付了什么、明确不做什么。', link: '/zh-CN/guide/' },
-    { index: '02', label: 'TRACE', title: '追踪一次请求', text: '从 Renderer 走到 Electron、pi、Rust host 和 SQLite。', link: '/zh-CN/spec/02-architecture/01-architecture' },
+    { index: '02', label: 'TRACE', title: '追踪一次请求', text: '从 Renderer 走到 Tauri Shell、pi、Rust host 和 SQLite。', link: '/zh-CN/spec/02-architecture/01-architecture' },
     { index: '03', label: 'EXTEND', title: '开发一个插件', text: '从包格式、API、权限到生命周期逐步展开。', link: '/zh-CN/plugin-development' },
     { index: '04', label: 'SHIP', title: '验证一次变化', text: '把规格、实现、E2E 场景和交付记录连起来。', link: '/zh-CN/spec/06-delivery/README' },
   ],
   mapLabel: '系统地图',
   mapTitle: '四层边界，保持一条阅读主线。',
   layers: [
-    { name: 'Shell', detail: 'Electron', text: '桌面窗口、preload IPC、生命周期和平台能力。' },
+    { name: 'Shell', detail: 'Tauri', text: '桌面窗口、IPC、生命周期和平台能力。' },
     { name: 'Agent', detail: 'pi sidecar', text: '代理循环、工具调用、上下文与 provider-facing model work。' },
     { name: 'Host', detail: 'Rust core', text: '权限、进程、文件系统、RPC 和可取消的运行时边界。' },
     { name: 'State', detail: 'SQLite', text: '会话、配置、检查点、插件状态和持久化所有权。' },
@@ -55,14 +55,14 @@ const copy = computed(() => isZh.value ? {
   journeyTitle: 'Start with the question you are solving.',
   journeys: [
     { index: '01', label: 'ORIENT', title: 'Build the product model', text: 'Know what is shipped and what is deliberately out of scope.', link: '/guide/' },
-    { index: '02', label: 'TRACE', title: 'Trace one request', text: 'Follow the path through Renderer, Electron, pi, Rust host, and SQLite.', link: '/spec/02-architecture/01-architecture' },
+    { index: '02', label: 'TRACE', title: 'Trace one request', text: 'Follow the path through Renderer, Tauri Shell, pi, Rust host, and SQLite.', link: '/spec/02-architecture/01-architecture' },
     { index: '03', label: 'EXTEND', title: 'Build a plugin', text: 'Move from package format to API, permissions, and lifecycle.', link: '/plugin-development' },
     { index: '04', label: 'SHIP', title: 'Validate a change', text: 'Connect the spec, implementation, E2E scenario, and delivery record.', link: '/spec/06-delivery/README' },
   ],
   mapLabel: 'System map',
   mapTitle: 'Four boundaries. One readable thread.',
   layers: [
-    { name: 'Shell', detail: 'Electron', text: 'Windows, preload IPC, lifecycle, and platform capabilities.' },
+    { name: 'Shell', detail: 'Tauri', text: 'Windows, IPC, lifecycle, and platform capabilities.' },
     { name: 'Agent', detail: 'pi sidecar', text: 'Agent loop, tools, context, and provider-facing model work.' },
     { name: 'Host', detail: 'Rust core', text: 'Permissions, processes, filesystem, RPC, and cancellation.' },
     { name: 'State', detail: 'SQLite', text: 'Sessions, configuration, checkpoints, plugins, and ownership.' },

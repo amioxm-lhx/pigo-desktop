@@ -24,7 +24,7 @@
 | 消息总线 | 插件之间按约定类型化事件 | `contributes.bus`，总线权限 |
 
 插件入口代码在专用的 Node 进程中运行。面板在沙盒中运行，
-上下文隔离的 Electron 窗口，没有 Node 集成。来自任一方的呼叫
+上下文隔离的渲染层 iframe，没有 Node 集成。来自任一方的呼叫
 表面跨越主机拥有的权限网关。
 
 > **信任边界：**权限模型对 `pi.*` 主机 API 和面板进行门控
@@ -240,7 +240,7 @@ PI-Desktop 在 macOS、Windows 和 Linux 上都使用无边框窗口承载面板
 ```
 
 面板不接收全局 `pi` 对象。它只接收
-`window.pluginBridge` 和任意 Electron IPC 通道不可用。
+`window.pluginBridge`，任意 Tauri IPC 通道不可用。
 
 ## 6. 添加功能
 
@@ -395,7 +395,7 @@ root 本身。`net.fetch` 接受 HTTP(S)，并且只能到达 `manifest.net.doma
 `pi.ui.notify` 显示应用内 Toast。本机通知可选择加入：呼叫
 `pi.ui.requestNotificationPermission()` 之前
 `pi.ui.showNativeNotification(...)`。返回的权限是尽力而为的
-因为 Electron 没有公开跨平台只读操作系统权限 API；
+因为桌面壳没有公开跨平台只读操作系统权限 API；
 `unknown` 表示平台尚未上报结果，且
 `unsupported` 表示桌面通知不可用。原生插件
 通知不会添加到 PI-Desktop 的持久任务通知收件箱中。点击已交付的通知会恢复并聚焦主窗口，
@@ -640,7 +640,7 @@ export default function (pi) {
   --ignore-scripts`，校验生成的 registry-only lockfile，再以相同安全参数运行 `npm ci`。
   生产、可选、开发和 peer 字段中的直接依赖 spec 都会校验，git 解析会被禁用，绝不运行
   第三方生命周期脚本。需要构建脚本的原生模块会以诊断形式加载失败——在插件目录内用
-  Electron 头重建（`npx @electron/rebuild -v <electron 版本>`）即可修复。安装失败会清理
+  宿主机的 Node ABI 重建（`npm rebuild`）即可修复。安装失败会清理
   部分依赖并显示警告 toast，不会阻塞导入；只有扩展实际加载失败时插件行才显示 load error。
 
 ## 7.权限设计

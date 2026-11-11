@@ -156,8 +156,8 @@ pnpm --filter @pi-desktop/desktop build
 mkdir -p /tmp/codex-screens
 
 # 英文一遍；中文一遍在命令末尾加 --lang=zh-CN。
-cd apps/desktop && PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
-  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron .
+# 以 PI_DESKTOP_CAPTURE=1 和全新的 PI_DESKTOP_DATA_DIR 启动 Tauri 桌面壳
+# （见 apps/desktop-tauri/README.md），等装置打印 CAPTURE_DONE 后继续。
 
 python3 scripts/publish-screenshots.py --source /tmp/codex-screens --locale zh
 ```

@@ -1,0 +1,22 @@
+import { ssrRenderAttrs, ssrRenderStyle } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"PI-Desktop Docs","description":"","frontmatter":{},"headers":[],"relativePath":"README.md","filePath":"README.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "README.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="pi-desktop-docs" tabindex="-1">PI-Desktop Docs <a class="header-anchor" href="#pi-desktop-docs" aria-label="Permalink to &quot;PI-Desktop Docs&quot;">​</a></h1><p><code>docs/</code> is a VitePress project. The published site starts at <a href="./"><code>index.md</code></a>; the repository&#39;s English technical source of truth remains organized under <code>spec/</code> and <code>adr/</code>.</p><h2 id="local-commands" tabindex="-1">Local commands <a class="header-anchor" href="#local-commands" aria-label="Permalink to &quot;Local commands&quot;">​</a></h2><div class="language-bash vp-adaptive-theme line-numbers-mode"><button title="Copy Code" class="copy"></button><span class="lang">bash</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span style="${ssrRenderStyle({ "--shiki-light": "#6F42C1", "--shiki-dark": "#B392F0" })}">pnpm</span><span style="${ssrRenderStyle({ "--shiki-light": "#032F62", "--shiki-dark": "#9ECBFF" })}"> docs:dev</span></span>
+<span class="line"><span style="${ssrRenderStyle({ "--shiki-light": "#6F42C1", "--shiki-dark": "#B392F0" })}">pnpm</span><span style="${ssrRenderStyle({ "--shiki-light": "#032F62", "--shiki-dark": "#9ECBFF" })}"> docs:build</span></span>
+<span class="line"><span style="${ssrRenderStyle({ "--shiki-light": "#6F42C1", "--shiki-dark": "#B392F0" })}">pnpm</span><span style="${ssrRenderStyle({ "--shiki-light": "#032F62", "--shiki-dark": "#9ECBFF" })}"> docs:preview</span></span>
+<span class="line"><span style="${ssrRenderStyle({ "--shiki-light": "#6F42C1", "--shiki-dark": "#B392F0" })}">pnpm</span><span style="${ssrRenderStyle({ "--shiki-light": "#032F62", "--shiki-dark": "#9ECBFF" })}"> docs:check</span></span></code></pre><div class="line-numbers-wrapper" aria-hidden="true"><span class="line-number">1</span><br><span class="line-number">2</span><br><span class="line-number">3</span><br><span class="line-number">4</span><br></div></div><h2 id="layout-notes" tabindex="-1">Layout notes <a class="header-anchor" href="#layout-notes" aria-label="Permalink to &quot;Layout notes&quot;">​</a></h2><ul><li><code>spec/</code> and <code>adr/</code> are the English source of truth; <code>zh-CN/</code> mirrors <code>spec/</code> and <code>guide/</code> path for path and is checked by <code>pnpm docs:check</code>.</li><li><code>image/</code> holds pictures embedded by the repository READMEs. <code>public/</code> holds assets served by the site itself (brand mark, screenshots).</li><li><code>project/</code> keeps historical planning records; current status lives in the changelog and GitHub Issues.</li></ul><h2 id="entry-points" tabindex="-1">Entry points <a class="header-anchor" href="#entry-points" aria-label="Permalink to &quot;Entry points&quot;">​</a></h2><ul><li><a href="./">English documentation site</a></li><li><a href="./zh-CN/">中文入口</a></li><li><a href="./guide/">Quick guide</a></li><li><a href="./spec/README">Specification index</a></li><li><a href="./adr/README">ADR index</a></li><li><a href="./plugin-development">Plugin development</a></li><li><a href="./project/2026-08-13-docs-redesign-verification">Visual verification</a></li></ul><p>The Chinese entry point mirrors the English reading paths and includes a path-for-path companion for every specification. Each translated page links to the canonical English source and preserves code, protocol fields, and identifiers. The generated sidebar keeps both locale trees complete as the specification set grows.</p></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("README.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const README = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  README as default
+};

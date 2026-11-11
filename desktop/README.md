@@ -223,7 +223,7 @@ Give agents reusable instructions and workflows. Skills can be installed globall
 
 Connect external tools and services through Model Context Protocol servers without baking them into the desktop application.
 
-PI-Desktop can also be controlled by an external MCP Agent. Start the app with `PI_DESKTOP_MCP_CONTROL=1`, then read the loopback endpoint and bearer token from `mcp-control.json` in the Electron user-data directory.
+PI-Desktop can also be controlled by an external MCP Agent. Start the app with `PI_DESKTOP_MCP_CONTROL=1`, then read the loopback endpoint and bearer token from `mcp-control.json` in the application data directory.
 
 The control endpoint supports project, session, and Agent workflows plus a reviewed desktop operation catalog. It is disabled by default, binds to loopback only, and grants the calling local Agent the same authority as the desktop for those operations. `confirm: true` is not a user prompt.
 
@@ -326,12 +326,6 @@ Check your version with:
 
 ```bash
 ldd --version
-```
-
-The Linux `.asar` asset is also available for repackaging with a system Electron:
-
-```bash
-electron PI-Desktop-<version>-linux-x64.asar
 ```
 
 The target distribution still needs the required native host and packaged resources.
@@ -480,7 +474,7 @@ pnpm lint
 pnpm test
 ```
 
-Additional protocol, Plan, supervision, Subagent, and Electron E2E suites are documented in the repository specification.
+Additional protocol, Plan, supervision, Subagent, and desktop E2E suites are documented in the repository specification.
 
 </details>
 

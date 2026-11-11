@@ -578,8 +578,9 @@ button that reads one page and the pages it links to, so the owner can see what
 a logged-in session
 actually returns before trusting a scheduled run to it.
 
-`apps/desktop/test/manual/staff-site-zhihu-live.cjs` runs these same modules
-inside Electron against the live site. Without a profile it proves the gate:
+`apps/desktop/test/manual/staff-site-zhihu-live.cjs` (removed during the Tauri
+migration) ran these same modules inside Electron against the live site.
+Without a profile it proves the gate:
 an unsigned session is refused by name, `/hot` lands on the sign-in page with
 no `z_c0`, and the sign-in page really renders a code to scan. Pointed at the
 console's own profile through `PI_STAFF_SITE_USER_DATA` -- with the app closed,

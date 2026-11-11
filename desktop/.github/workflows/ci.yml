@@ -30,8 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # Match the Node that Electron 43 bundles (24.18), so CI type-checks
-          # and tests against the same runtime the app actually ships.
+          # Pin Node 24 so CI type-checks and tests against a fixed runtime.
           node-version: 24
           cache: pnpm
 

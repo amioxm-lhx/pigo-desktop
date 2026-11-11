@@ -81,9 +81,9 @@ Before editing:
 While editing:
 
 - Keep one logical concern per change and avoid unrelated cleanup.
-- Preserve the process boundary: Renderer → Preload IPC → Electron Main → Rust
-  host core / agent runtime.
-- Keep SQLite ownership in Rust host core and keep Electron Main a thin
+- Preserve the process boundary: Renderer → Tauri IPC → Tauri Shell → Rust
+  host core / Go agent sidecar.
+- Keep SQLite ownership in Rust host core and keep the Tauri Shell a thin
   orchestrator.
 - Update the relevant specification when behavior changes.
 - Add or update an E2E scenario for user-visible or protocol-visible behavior.

@@ -1,0 +1,19 @@
+import { ssrRenderAttrs } from "vue/server-renderer";
+import { useSSRContext } from "vue";
+import { _ as _export_sfc } from "./plugin-vue_export-helper.1tPrXgE0.js";
+const __pageData = JSON.parse('{"title":"ADR 0161: Searchable theme picker matching language","description":"","frontmatter":{},"headers":[],"relativePath":"adr/0161-searchable-theme-picker.md","filePath":"adr/0161-searchable-theme-picker.md","lastUpdated":1793980871000}');
+const _sfc_main = { name: "adr/0161-searchable-theme-picker.md" };
+function _sfc_ssrRender(_ctx, _push, _parent, _attrs, $props, $setup, $data, $options) {
+  _push(`<div${ssrRenderAttrs(_attrs)}><h1 id="adr-0161-searchable-theme-picker-matching-language" tabindex="-1">ADR 0161: Searchable theme picker matching language <a class="header-anchor" href="#adr-0161-searchable-theme-picker-matching-language" aria-label="Permalink to &quot;ADR 0161: Searchable theme picker matching language&quot;">​</a></h1><ul><li>Status: Accepted</li><li>Date: 2026-09-05</li><li>Decision owners: PI-Desktop desktop/settings maintainers</li><li>Related: D316, D314, ADR 0160, D175</li></ul><h2 id="context" tabindex="-1">Context <a class="header-anchor" href="#context" aria-label="Permalink to &quot;Context&quot;">​</a></h2><p>Settings → General → Appearance presented theme as three preview cards (System / Light / Dark), with plugin themes wrapping into the same grid. Language and Font are already searchable picker rows. Plugin themes make the card grid wrap past three columns, and the visual mockups did not scale with contributed palettes. The language picker already solved the same growing-list problem.</p><h2 id="decision" tabindex="-1">Decision <a class="header-anchor" href="#decision" aria-label="Permalink to &quot;Decision&quot;">​</a></h2><ol><li>Theme is a searchable picker row, same anchored-menu pattern as Language: the trigger fills the settings control column, the menu portals so the settings card cannot clip it, and search filters the list.</li><li>Built-in System, Light, and Dark stay pinned at the top. Plugin themes follow after a divider, with the existing &quot;Provided by …&quot; hint. Search matches labels, descriptions, ids, and plugin ids.</li><li><code>AppSettings.theme</code> is unchanged (<code>system</code> | <code>light</code> | <code>dark</code> | <code>plugin:&lt;pluginId&gt;:&lt;themeId&gt;</code>). An unavailable plugin theme still falls back to <code>system</code>.</li><li>This amends ADR 0160&#39;s clause that Appearance keeps Theme as three preview cards.</li></ol><h2 id="consequences" tabindex="-1">Consequences <a class="header-anchor" href="#consequences" aria-label="Permalink to &quot;Consequences&quot;">​</a></h2><ul><li>Appearance&#39;s three rows — Theme, Language, Font — share one control pattern.</li><li>Plugin themes no longer wrap a three-column card grid.</li><li>Adding a plugin theme does not change the picker chrome.</li></ul><h2 id="alternatives" tabindex="-1">Alternatives <a class="header-anchor" href="#alternatives" aria-label="Permalink to &quot;Alternatives&quot;">​</a></h2><ul><li>Keep theme as wrapping preview cards: unreadable once plugins add more than one or two palettes, and inconsistent with Language.</li><li>Keep mini-window mockups inside the picker rows: extra chrome for a choice that is already visible the moment it is selected.</li></ul></div>`);
+}
+const _sfc_setup = _sfc_main.setup;
+_sfc_main.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("adr/0161-searchable-theme-picker.md");
+  return _sfc_setup ? _sfc_setup(props, ctx) : void 0;
+};
+const _0161SearchableThemePicker = /* @__PURE__ */ _export_sfc(_sfc_main, [["ssrRender", _sfc_ssrRender]]);
+export {
+  __pageData,
+  _0161SearchableThemePicker as default
+};

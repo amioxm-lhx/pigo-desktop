@@ -22,7 +22,7 @@ const isZh = computed(() => props.locale === 'zh-CN')
         <div class="home-console__graph">
           <div class="home-console__node home-console__node--accent"><b>01</b><strong>Renderer</strong><small>presentation</small></div>
           <span class="home-console__line home-console__line--one"></span>
-          <div class="home-console__node"><b>02</b><strong>Electron</strong><small>orchestration</small></div>
+          <div class="home-console__node"><b>02</b><strong>Tauri</strong><small>orchestration</small></div>
           <span class="home-console__line home-console__line--two"></span>
           <div class="home-console__node"><b>03</b><strong>Rust host</strong><small>authority</small></div>
           <span class="home-console__line home-console__line--three"></span>

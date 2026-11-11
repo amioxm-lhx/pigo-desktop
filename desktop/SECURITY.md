@@ -53,7 +53,7 @@ with their permission.
 ## Scope
 
 Reports are generally in scope when they affect the PI-Desktop application,
-official release artifacts, Electron main or preload boundaries, the Rust host
+official release artifacts, Tauri shell or IPC boundaries, the Rust host
 core, the agent runtime, or the handling of credentials, permissions, local
 files, plugins, MCP servers, or IPC/RPC messages.
 

@@ -499,7 +499,7 @@ WKWebView 让同一进程的所有 webview 共用一个 Cookie 存储。登录�
 页数上限，以及一个会读取一个页面及其链接页的「立即试采集」按钮，让业主在把排期运行托付给它
 之前先看清登录态到底能读到什么。
 
-`apps/desktop/test/manual/staff-site-zhihu-live.cjs` 会在 Electron 里加载同一批模块
+`apps/desktop/test/manual/staff-site-zhihu-live.cjs`（Tauri 迁移时已移除）曾在 Electron 里加载同一批模块
 对真实站点运行。不指定 profile 时它验证的是门禁：未登录的会话会被指名拒绝，
 `/hot` 会落到登录页且 cookie 里没有 `z_c0`，登录页确实渲染出可扫的码。用
 `PI_STAFF_SITE_USER_DATA` 指向控制台自己的 profile（需先关闭应用，因为 Chromium

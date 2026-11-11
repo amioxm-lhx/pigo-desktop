@@ -1,3 +1,3 @@
 # apps
 
-- `desktop` — Electron + React product shell
+- `desktop-tauri` — Tauri 2 + Rust host-core + React desktop shell

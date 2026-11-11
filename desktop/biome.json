@@ -10,8 +10,6 @@
       "apps/desktop-tauri/src/features/plugins/**/*.tsx",
       "apps/desktop-tauri/src/features/settings/**/*.ts",
       "apps/desktop-tauri/src/features/settings/**/*.tsx",
-      "apps/desktop-tauri/electron/main/runtime/session-launch.ts",
-      "apps/desktop-tauri/electron/main/ipc/workspace-ipc.ts",
       "packages/shared/src/types/**/*.ts",
       "scripts/check-architecture.mjs",
       "scripts/e2e/*.mjs"

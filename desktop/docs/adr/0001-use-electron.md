@@ -1,7 +1,12 @@
 # ADR 0001: Use Electron as the desktop shell
 
-- Status: Accepted
+- Status: **Superseded** — replaced by the Tauri 2 shell
 - Date: 2026-07-25
+
+> Historical decision, kept so ADR numbering and existing links stay stable.
+> The desktop shell is now Tauri 2 + Rust `host-core` + a Go agent sidecar
+> (`desktop/apps/desktop-tauri`). Everything below describes the original
+> plan and is no longer in effect.
 
 ## Context
 

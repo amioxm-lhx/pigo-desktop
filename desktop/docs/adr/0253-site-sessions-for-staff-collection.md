@@ -109,8 +109,9 @@ Login state is derived from cookies on every read rather than stored.
 
 ## Validation
 
-`apps/desktop/test/manual/staff-site-zhihu-live.cjs` runs the collector's own
-modules inside Electron against the live site, in two modes. Run anonymously
+`apps/desktop/test/manual/staff-site-zhihu-live.cjs` (removed during the Tauri
+migration) ran the collector's own modules inside Electron against the live
+site, in two modes. Run anonymously
 on 2026-09-20 it passed 12 checks: the sweep starts from the hot list, an
 unsigned session is refused with a message rather than an empty page, an
 anonymous visit to `/hot` lands on `/signin?next=%2Fhot` with no `z_c0` in

@@ -3,9 +3,9 @@
 [![CI](https://github.com/smallnest/pigo/actions/workflows/ci.yml/badge.svg)](https://github.com/smallnest/pigo/actions/workflows/ci.yml)
 [![Release](https://github.com/smallnest/pigo/actions/workflows/release.yml/badge.svg)](https://github.com/smallnest/pigo/actions/workflows/release.yml)
 
-使用 Go 复刻的 [pi](https://pi.dev) AI Agent —— 一个面向命令行的编码智能体，同时支持**无头（headless）脚本模式**与**交互式 REPL**。
+使用 Go 复刻的 [pi](https://pi.dev) AI Agent —— 一个面向命令行的编码智能体，既支持**无头（headless）脚本模式**与**交互式 REPL**，也提供独立的 **Tauri 桌面工作台**。
 
-pigo 可以读写文件、执行命令、检索代码、抓取网页，并借助大模型完成从"读懂需求"到"改好代码"的闭环。它兼容 OpenAI / Anthropic 等多种协议网关，支持会话续跑、项目信任、技能（Skills）、插件与包管理。
+pigo 可以读写文件、执行命令、检索代码、抓取网页，并借助大模型完成从"读懂需求"到"改好代码"的闭环。它兼容 OpenAI / Anthropic 等多种线路、内置近 40 个 Provider，支持会话续跑与持久记忆、联网搜索、项目信任、技能（Skills）、插件、包管理、SDK 嵌入与 review webhook；桌面端另有会话树、还原点与长任务面板。
 
 > 模块路径：`github.com/smallnest/pigo` · Go 1.27+
 
@@ -42,19 +42,53 @@ pigo 可以读写文件、执行命令、检索代码、抓取网页，并借助
 
 ## 特性一览
 
-- **两种模式**：无头 `-p` 一次性执行（适合脚本 / CI），或直接进入交互式 REPL。
-- **多 Provider**：OpenRouter（默认）、本地 Ollama、NVIDIA NIM、Anthropic、任意 OpenAI 兼容端点。
-- **内置工具集**：`read` / `write` / `edit` / `grep` / `find` / `bash`（支持 `run_in_background` 后台执行，配套 `bash_output` / `kill_bash`）/ `todo` / `webfetch`。
-- **会话续跑**：`--list-sessions` / `--resume` / `--continue`，无头与 REPL 均可续跑。
-- **stream-json 输出**：逐行 JSON 事件，首个事件携带 `session_id`，便于调用方关联。
-- **系统提示词分层组装**：base 指令 + 环境块 + `AGENTS.md`（general→specific）+ `--append-system-prompt`。
-- **项目信任**：副作用工具（bash/write/edit）在未信任目录需确认，`--approve` 一次性授权。
-- **工具级准入**：`--allowed-tools` / `--disallowed-tools` 划定工具边界（黑名单优先、子 Agent 继承、`--approve` 不可绕过）。
-- **技能与插件**：`~/.agents/skills` 下的 `/slash` 命令、`~/.pigo/plugins` 下的外部插件。
-- **提示词模板**：`~/.pigo/prompts`、项目 `.pigo/prompts`（受信任时）、config `prompts`、`--prompt-template` 下的可复用 `/name` 模板，支持 `$1`/`$@`/`${1:-default}`/`${@:N}` 等参数语法。
-- **上下文自动压缩**：接近上下文窗口上限时自动摘要，亦可 `/compact` 手动触发。
-- **包管理**：`pigo install npm:<pkg>` 安装 pi 生态的 extension / skill / prompt / theme。
-- **自更新**：无参 `pigo update` 将 pigo 二进制升级到最新 GitHub Release；进入 TUI 时后台检查新版本并在横幅提示。
+> 按能力分组，覆盖 CLI 内核（v0.5.6）与仓库当前实现（含尚未发版的桌面端 / 服务端能力）。逐版本的完整清单见 [CHANGELOG.md](CHANGELOG.md)。
+
+### 运行形态
+
+- **无头 / REPL / 事件流**：`-p` 一次性执行（适合脚本 / CI）、交互式 REPL，以及 `--output-format stream-json` 逐行 JSON 事件（首个事件携带 `session_id`）。见[运行模式](#运行模式)。
+- **Tauri 桌面工作台**：[`desktop/`](desktop/README.zh-CN.md) 提供 Tauri 2 + Rust `host-core`（SQLite / 权限 / 密钥）+ Go sidecar 的图形界面，内置 16 条与 CLI 对齐的命令、会话树 / 侧线程 / 还原点面板、8 语言界面，以及 pigo 兼容的 JSONL 导出。
+- **可嵌入的 Web 前端**：`internal/serve` + `internal/web` 暴露 REST 会话 / 运行时控制与 SSE run 事件流的 `http.Handler`，不接管 TLS、鉴权与进程生命周期。
+- **远程控制**：`/remote-control` 以 token 保护的局域网 Web 界面操作同一会话。
+
+### 模型与 Provider
+
+- **近 40 个内置 Provider**：OpenRouter（默认）、Ollama、NVIDIA NIM、Anthropic、OpenAI、Azure、Bedrock、Vertex、Novita、DeepSeek、智谱、小米 MiMo 等；支持裸 Provider 名取默认模型、模型名前缀推断与 `--protocol` 强制线路。见[模型与 Provider](#模型与-provider)。
+- **多种 OpenAI 线路**：Chat Completions 与 Responses API（流式文本、工具调用、图片输入、reasoning），并支持 Azure Responses 变体。
+- **在线模型发现**：`/models fetch` 拉取最新模型目录，`/model` 运行时切换；`/think [off|minimal|…|max]` 查看或调整推理强度。
+- **凭证引用**：config 中只写 `credential = "<name>"`，真实 key 存于 `~/.pigo/.credentials.yaml`；子进程环境自动清洗 `*_API_KEY` / `*_TOKEN` / `*_SECRET` / `PIGO_*`。
+
+### 内置工具与边界
+
+- **完整工具集**：`read` / `write` / `edit` / `grep` / `find` / `bash`（`run_in_background` 后台执行，配套 `bash_output` / `kill_bash`）/ `todo` / `webfetch` / `websearch`（Tavily / Brave / 无 key 的 DuckDuckGo 自动选后端）/ `memory_search` / `task` 子 Agent / `schedule_*` 提醒 / `goal`。见[内置工具](#内置工具)。
+- **工具级准入**：`--allowed-tools` / `--disallowed-tools` 划定工具边界（黑名单优先、子 Agent 继承、未知工具名以退出码 2 终止、`--approve` 不可绕过）。见[工具级准入](#工具级准入)。
+- **信任与路径边界**：副作用工具（bash / write / edit）在未信任目录需逐次确认，`--approve` 一次性授权；`pathguard` 约束文件工具的访问路径；`--no-tools` 全量禁用。见[项目信任](#项目信任)与[安全说明](#安全说明)。
+- **Hooks**：9 个生命周期事件（PreToolUse / PostToolUse / UserPromptSubmit / Stop / …），用 shell 命令阻断、注入上下文或改写工具入参；项目级 hook 仅受信任时加载。见 [Hooks](#hooks)。
+- **沙箱模式**：Docker 整进程、micro-VM、进程级策略三种隔离方式，与信任 / 工具策略的组合矩阵见 [docs/sandboxing.md](docs/sandboxing.md)。
+
+### 会话与上下文
+
+- **续跑与树形会话**：`--list-sessions` / `--resume` / `--continue`，以及 `/tree` 分叉、`/fork` / `/clone`；`session.Store` 契约默认走 JSONL，另有归一化 SQLite 后端与跨进程文件租约。
+- **导出与分享**：`pigo session export <id>` 默认输出脱敏的 Markdown，亦可输出 HTML 或无损、可续跑的 JSONL（`--format md|json|html`）；REPL 中另有 `/export`、`/import`、`/copy`。
+- **无限上下文**：SQLite FTS5 持久记忆 + BM25 检索、checkpoint 水位与 `/rebuild` 基于检查点重建上下文；接近窗口上限自动压缩，亦可 `/compact` 手动触发。
+- **记忆整合**：`/dream` 单实例锁、dry-run、LLM 合并 / 剪枝并在启动时后台自动触发；`/memory` 查看记忆索引报告。
+- **编辑还原点**：`/rewind [n]` 把 write / edit 改动的文件恢复到指定轮之前，并同时在该处分叉对话（不含 bash 改动）。
+- **系统提示词分层组装**：base 指令 + 环境块 + `AGENTS.md`（general→specific）+ `--append-system-prompt`。见[系统提示词组装](#系统提示词组装)。
+
+### 自动化与集成
+
+- **公共 Go SDK**：`github.com/smallnest/pigo/agent` 提供结构化事件、自定义工具、工具策略与多轮会话。见[作为 SDK 嵌入](#作为-sdk-嵌入)。
+- **Review Webhook**：GitHub `ready_for_review` 与 GitLab MR 事件自动创建只读 review 会话（验签 + 幂等去重，仅 read / grep / find）。
+- **会话级提醒调度**：`schedule_create` / `schedule_list` / `schedule_delete`。
+- **评测框架**：`pigo evals` + `internal/evals`（任务集、基线、规范化打分与产物）。
+- **可插拔遥测**：`telemetry.Sink` 契约（内存 / no-op 实现）与版本化导出 schema；`/status` 展示轮次、工具耗时与上下文利用率。
+
+### 扩展与生态
+
+- **技能与插件**：`~/.agents/skills` 下的 `/slash` 技能（渐进式披露、模型自动调用）、`~/.pigo/plugins` 下的外部插件。见[技能 Skills](#技能-skills)与[插件](#插件)。
+- **提示词模板**：`~/.pigo/prompts`、项目 `.pigo/prompts`（受信任时）、config `prompts`、`--prompt-template` 下的可复用 `/name` 模板，支持 `$1` / `$@` / `${1:-default}` / `${@:N}` 等参数语法。见[提示词模板](#提示词模板)。
+- **包管理与自更新**：`pigo install npm:<pkg>` 安装 extension / skill / prompt / theme；无参 `pigo update` 自更新二进制，进入 TUI 时后台检查并在横幅提示新版本。见[包管理](#包管理)与[自更新](#自更新)。
+- **双语文档站与电子书**：[`docs/`](docs/index.html) 中英静态站点，配套《用 Go 编写 pi Agent》及书稿 `book/`。
 
 ---
 
