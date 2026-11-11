@@ -160,7 +160,7 @@ pigo 是用 Go 复刻的 pi coding agent。当前 pigo 已具备 agent loop、7 
 - [ ] 新增 `internal/mcp` 包，实现 MCP client 的 stdio transport（子进程 + JSON-RPC 2.0）
 - [ ] 支持从配置文件读取 MCP server 列表（命令 + 参数 + env），对标 Claude Code `mcpServers` 配置
 - [ ] 连接后执行 `initialize` 握手并 `tools/list` 发现工具
-- [ ] 发现的工具以 `mcp__<server>__<tool>` 命名注册进 `agenttool` registry
+- [ ] 发现的工具以 `mcp_<server>_<tool>` 命名注册进 `agenttool` registry（与桌面端 `mcp.rs:819` 已发布命名一致；有意偏离 Claude Code 的 `mcp__server__tool` 双下划线风格，理由见 `docs/mcp-local-integration.md` §3.3）
 - [ ] 连接失败的 server 被跳过并告警，不阻塞启动
 - [ ] `go test ./internal/mcp/...` 通过
 
@@ -267,7 +267,7 @@ pigo 是用 Go 复刻的 pi coding agent。当前 pigo 已具备 agent loop、7 
 - 长会话（超过模型窗口）可连续对话不报超窗错误，压缩后关键上下文（文件路径/决策）保留。
 - 会话可 fork/clone/tree 切换且分支互不污染，导出 JSONL 能无损 import 往返。
 - 业务团队用非 Go 语言写的插件可注册并被模型调用，插件崩溃不影响主进程。
-- MCP server 工具在 pigo 中可被发现与调用，命名与 Claude Code 一致（`mcp__server__tool`）。
+- MCP server 工具在 pigo 中可被发现与调用，命名与桌面端一致（`mcp_<server>_<tool>`；有意偏离 Claude Code 的 `mcp__server__tool`，统一 CLI 与桌面端两条技术栈，避免对已发布桌面端做破坏性改名）。
 - 未信任目录下副作用工具默认需确认。
 
 ## Open Questions

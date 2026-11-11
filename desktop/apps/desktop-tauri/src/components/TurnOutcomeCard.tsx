@@ -46,14 +46,24 @@ export function TurnOutcomeCard({
   // A turn the runtime reports as completed can still carry no answer at all:
   // the agent loop may settle after its last tool call (a stop, an empty model
   // response, a dropped final stream) and record `completed` with nothing to
-  // read. The settled activity group then collapses to one summary line, so
-  // the transcript reads as if the reply vanished. Say so instead, and offer
-  // the same continuation the failure card offers — the work above is still in
-  // the transcript, only folded away.
-  const answered = tail.some(
-    (message) =>
-      message.role === "assistant" && Boolean((message.content || "").trim()),
-  );
+  // read. Text written *before* the last tool call is narration ("let me look
+  // at ..."), not a conclusion, so an answer only counts when it follows every
+  // tool call in the turn. The settled activity group then collapses to one
+  // summary line, and the transcript reads as if the reply vanished. Say so
+  // instead, and offer the same continuation the failure card offers — the work
+  // above is still in the transcript, only folded away.
+  let lastToolIndex = -1;
+  let lastAnswerIndex = -1;
+  tail.forEach((message, index) => {
+    if (message.role === "tool") {
+      lastToolIndex = index;
+      return;
+    }
+    if (message.role === "assistant" && (message.content || "").trim()) {
+      lastAnswerIndex = index;
+    }
+  });
+  const answered = lastAnswerIndex > lastToolIndex;
   if (result.status === "completed" && answered) return null;
 
   return (

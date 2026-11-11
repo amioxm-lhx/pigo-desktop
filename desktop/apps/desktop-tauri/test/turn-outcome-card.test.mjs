@@ -63,14 +63,28 @@ test("outcome card yields to an inline assistant error", () => {
 
 test("outcome card speaks for a completed turn that produced no answer", () => {
   // The runtime can settle a turn as completed after its last tool call, with
-  // no assistant text at all; the settled activity group then folds to one
+  // no closing assistant text; the settled activity group then folds to one
   // summary line and the transcript reads as if the reply vanished.
-  assert.match(
-    outcome,
-    /const answered = tail\.some\([\s\S]*?message\.role === "assistant"[\s\S]*?\);/,
-  );
+  assert.match(outcome, /let lastToolIndex = -1;/);
+  assert.match(outcome, /let lastAnswerIndex = -1;/);
+  assert.match(outcome, /if \(message\.role === "tool"\) \{/);
+  assert.match(outcome, /const answered = lastAnswerIndex > lastToolIndex;/);
   assert.match(
     outcome,
     /if \(result\.status === "completed" && answered\) return null;/,
   );
+});
+
+test("narration before the last tool call is not a closing answer", () => {
+  // A real turn lands as: user, "let me explore", 38 tool rows, nothing.
+  // Counting *any* assistant text as an answer suppressed the card on exactly
+  // the turns it exists for, so only text after the last tool call counts.
+  assert.doesNotMatch(outcome, /const answered = tail\.some/);
+  assert.match(
+    outcome,
+    /lastToolIndex = index;[\s\S]*?lastAnswerIndex = index;/,
+  );
+  const answeredIndex = outcome.indexOf("const answered =");
+  const cardGate = outcome.indexOf('result.status === "completed" && answered');
+  assert.ok(answeredIndex > 0 && cardGate > answeredIndex);
 });

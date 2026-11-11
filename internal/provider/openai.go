@@ -51,6 +51,7 @@ type OpenAIDecoder struct {
 	inputTokens   int
 	outputTokens  int
 	stopReason    string // mapped pigo stop reason (empty until finish_reason)
+	started       bool   // StreamStartEvent already emitted for this response
 	done          bool
 }
 
@@ -127,6 +128,15 @@ func (d *OpenAIDecoder) Decode(payload []byte) ([]StreamEvent, error) {
 	}
 
 	var events []StreamEvent
+	// OpenAI's wire has no "response started" frame, but the loop, the desktop
+	// sidecar and every other decoder treat StreamStartEvent as the opening of
+	// one assistant message. Synthesize it on the first chunk so a response is
+	// one start/end pair instead of a bare stream of deltas: consumers keyed by
+	// message identity otherwise cannot tell two responses in a tool loop apart.
+	if !d.started {
+		d.started = true
+		events = append(events, StreamStartEvent{Partial: d.partial()})
+	}
 	for _, choice := range chunk.Choices {
 		// Reasoning stream (DeepSeek-R1 / Kimi / …): reasoning_content is the
 		// common field; a few gateways use "reasoning". Accumulate whichever is set.

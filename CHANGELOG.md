@@ -48,6 +48,14 @@ interactive REPL/TUI.
 
 ### Fixed
 - Desktop: model switching after adding a model in settings.
+- Desktop: an answer streamed after a tool call disappeared on reload and the
+  turn was reported as unfinished. OpenAI-compatible gateways begin a response
+  with its first delta and never emit a start frame, so the sidecar's mapper
+  reused the id of the assistant fragment that had just closed; the renderer
+  overwrote the older row in place instead of adding one, and the host dropped
+  the later snapshot as a replayed id. The mapper now opens every fragment with
+  a fresh id, and `OpenAIDecoder` emits `StreamStartEvent` like the other
+  decoders.
 
 ## [0.5.6] - 2026-09-12
 

@@ -77,15 +77,40 @@ func (m *eventMapper) onMessageStart(event agentcore.MessageStartEvent) {
 		return
 	}
 	m.session.clearActivity()
-	m.messageID = newID()
-	m.messageCreatedAt = time.Now().UTC().Format(time.RFC3339Nano)
-	m.messageOpen = true
-	m.messageCompleted = false
+	m.beginMessage()
 	m.text = assistantText(assistant)
 	m.thinking = assistantThinking(assistant)
 
 	message := m.uiMessage(assistant, protocol.StatusStreaming)
 	m.emit(protocol.MessageStartEvent{Type: protocol.TypeMessageStart, Message: message})
+}
+
+// beginMessage opens a fresh assistant row with a fresh id.
+//
+// OpenAI-compatible gateways never emit a start event: their stream begins with
+// the first delta, so this mapper synthesizes the row. That synthesized row must
+// not inherit the id of the fragment that closed a moment ago (a response before
+// each tool call): the host appends by id, so a reused id makes every later
+// snapshot look like a replay of the first one and it is dropped, while the
+// renderer overwrites the older row in place instead of adding a fragment. The
+// user then sees the answer stream in and lose it on the next reload.
+func (m *eventMapper) beginMessage() {
+	m.messageID = newID()
+	m.messageCreatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	m.messageOpen = true
+	m.messageCompleted = false
+	m.text = ""
+	m.thinking = ""
+}
+
+// closeMessage seals the current row so the next fragment opens its own.
+func (m *eventMapper) closeMessage() {
+	m.messageID = ""
+	m.messageCreatedAt = ""
+	m.messageOpen = false
+	m.messageCompleted = true
+	m.text = ""
+	m.thinking = ""
 }
 
 func (m *eventMapper) onMessageUpdate(event agentcore.MessageUpdateEvent) {
@@ -95,9 +120,9 @@ func (m *eventMapper) onMessageUpdate(event agentcore.MessageUpdateEvent) {
 	}
 	if !m.messageOpen {
 		// A provider that streams without a start event still needs a row for
-		// the renderer to attach deltas to.
-		m.ensureMessage()
-		m.messageOpen = true
+		// the renderer to attach deltas to — and it has to be a new row, not
+		// the one that already closed (see beginMessage).
+		m.beginMessage()
 		m.emit(protocol.MessageStartEvent{
 			Type:    protocol.TypeMessageStart,
 			Message: m.uiMessage(assistant, protocol.StatusStreaming),
@@ -172,8 +197,7 @@ func (m *eventMapper) onMessageEnd(event agentcore.MessageEndEvent) {
 	}
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
 	m.session.recordAssistantID(m.messageID)
-	m.messageOpen = false
-	m.messageCompleted = true
+	m.closeMessage()
 
 	if appErr != nil {
 		m.emitError(*appErr)
@@ -203,7 +227,7 @@ func (m *eventMapper) onTurnEnd(event agentcore.TurnEndEvent) {
 	})
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
 	m.session.recordAssistantID(m.messageID)
-	m.messageCompleted = true
+	m.closeMessage()
 	m.emitError(failure)
 }
 
@@ -224,8 +248,7 @@ func (m *eventMapper) finishAborted() {
 	}
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
 	m.session.recordAssistantID(m.messageID)
-	m.messageOpen = false
-	m.messageCompleted = true
+	m.closeMessage()
 }
 
 func (m *eventMapper) ensureMessage() {

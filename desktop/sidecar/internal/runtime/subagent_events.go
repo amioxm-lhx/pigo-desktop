@@ -79,10 +79,7 @@ func (m *subagentEventMapper) onMessageStart(event agentcore.MessageStartEvent) 
 	if !ok {
 		return
 	}
-	m.messageID = newID()
-	m.messageCreatedAt = time.Now().UTC().Format(time.RFC3339Nano)
-	m.messageOpen = true
-	m.messageCompleted = false
+	m.beginMessage()
 	m.text = assistantText(assistant)
 	m.thinking = assistantThinking(assistant)
 	m.emit(protocol.MessageStartEvent{
@@ -91,14 +88,33 @@ func (m *subagentEventMapper) onMessageStart(event agentcore.MessageStartEvent) 
 	})
 }
 
+// beginMessage opens a fresh delegate row with a fresh id; see the parent
+// mapper's beginMessage for why a reused id loses the fragment on reload.
+func (m *subagentEventMapper) beginMessage() {
+	m.messageID = newID()
+	m.messageCreatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	m.messageOpen = true
+	m.messageCompleted = false
+	m.text = ""
+	m.thinking = ""
+}
+
+func (m *subagentEventMapper) closeMessage() {
+	m.messageID = ""
+	m.messageCreatedAt = ""
+	m.messageOpen = false
+	m.messageCompleted = true
+	m.text = ""
+	m.thinking = ""
+}
+
 func (m *subagentEventMapper) onMessageUpdate(event agentcore.MessageUpdateEvent) {
 	assistant, ok := event.Message.(agentcore.AssistantMessage)
 	if !ok {
 		return
 	}
 	if !m.messageOpen {
-		m.messageOpen = true
-		m.ensureMessage()
+		m.beginMessage()
 		m.emit(protocol.MessageStartEvent{
 			Type:    protocol.TypeMessageStart,
 			Message: m.uiMessage(assistant, protocol.StatusStreaming),
@@ -168,8 +184,7 @@ func (m *subagentEventMapper) onMessageEnd(event agentcore.MessageEndEvent) {
 		})
 	}
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
-	m.messageOpen = false
-	m.messageCompleted = true
+	m.closeMessage()
 }
 
 // onTurnEnd closes a terminal error row that never reached MessageStart: pigo
@@ -193,7 +208,7 @@ func (m *subagentEventMapper) onTurnEnd(event agentcore.TurnEndEvent) {
 		Message: m.uiMessage(assistant, protocol.StatusStreaming),
 	})
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
-	m.messageCompleted = true
+	m.closeMessage()
 }
 
 func (m *subagentEventMapper) finishAborted() {
@@ -213,8 +228,7 @@ func (m *subagentEventMapper) finishAborted() {
 		AgentName:        m.agentName,
 	}
 	m.emit(protocol.MessageEndEvent{Type: protocol.TypeMessageEnd, Message: message})
-	m.messageOpen = false
-	m.messageCompleted = true
+	m.closeMessage()
 }
 
 func (m *subagentEventMapper) ensureMessage() {
