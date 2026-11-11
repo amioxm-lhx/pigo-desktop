@@ -82,6 +82,18 @@ fn normalize(path: &Path) -> PathBuf {
     out
 }
 
+/// Canonicalize when the path exists, else fall back to lexical normalization.
+///
+/// Everything that gets compared must go through this. On Windows
+/// `canonicalize` returns a verbatim `\\?\D:\...` path while a plain join
+/// yields `D:\...`, so mixing the two spaces makes a resolved candidate fail
+/// `starts_with` against its own root — every click in the file tree was
+/// answered with "path outside allowed roots", even though listing the same
+/// directory worked (listing never compares against the roots).
+fn canonical_or_normalized(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| normalize(path))
+}
+
 fn path_is_within(root: &Path, target: &Path) -> bool {
     target == root || target.starts_with(root)
 }
@@ -98,9 +110,9 @@ pub fn resolve_openable_path(
         return None;
     }
     let allowed: Vec<PathBuf> = workspace_root
-        .map(normalize)
+        .map(canonical_or_normalized)
         .into_iter()
-        .chain(extra_roots.iter().map(|r| normalize(r)))
+        .chain(extra_roots.iter().map(|r| canonical_or_normalized(r)))
         .collect();
     if allowed.is_empty() {
         return None;
@@ -114,7 +126,7 @@ pub fn resolve_openable_path(
             &raw.replace('\\', "/")["attachments/".len()..],
         )?
     } else if Path::new(raw).is_absolute() {
-        normalize(Path::new(raw))
+        canonical_or_normalized(Path::new(raw))
     } else {
         let root = workspace_root?;
         resolve_within_root(&normalize(Path::new(root)), raw)?
@@ -623,4 +635,85 @@ fn str_or<'a>(value: &'a Value, key: &str, default: &'a str) -> &'a str {
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(default)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    /// Scratch workspace outside the repo so canonicalization has something to
+    /// resolve (and so the Windows verbatim-prefix path shape is exercised).
+    fn workspace(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("pigo-fsops-{}-{name}", std::process::id()));
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(root.join("src")).expect("create workspace");
+        fs::write(root.join("src").join("main.go"), "package main\n").expect("write file");
+        root
+    }
+
+    /// Regression for the Windows-only bug: a relative path inside the
+    /// workspace resolved to a `\\?\D:/...` verbatim path and then failed
+    /// `starts_with` against the plainly-normalized root, so every file click
+    /// answered "path outside allowed roots".
+    #[test]
+    fn relative_file_inside_root_resolves() {
+        let root = workspace("rel");
+        let resolved = resolve_openable_path("src/main.go", Some(&root), &[]);
+        assert!(
+            resolved.is_some(),
+            "relative path inside the workspace must resolve (root {:?})",
+            root
+        );
+        let target = resolved.unwrap();
+        assert!(target.ends_with("main.go"), "resolved to {target:?}");
+        let reply = read_openable("src/main.go", Some(&root), &[]);
+        assert_eq!(
+            reply.get("ok").and_then(Value::as_bool),
+            Some(true),
+            "read_openable rejected a file inside the workspace: {reply}"
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn nested_relative_path_resolves() {
+        let root = workspace("nested");
+        assert!(resolve_openable_path("src", Some(&root), &[]).is_some());
+        assert!(resolve_openable_path("./src/main.go", Some(&root), &[]).is_some());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn absolute_path_inside_root_resolves() {
+        let root = workspace("abs");
+        let file = root.join("src").join("main.go");
+        assert!(resolve_openable_path(&file.to_string_lossy(), Some(&root), &[]).is_some());
+        assert!(resolve_openable_path(&root.to_string_lossy(), Some(&root), &[]).is_some());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// Containment must survive the normalization change: escapes stay closed.
+    #[test]
+    fn traversal_and_outside_paths_stay_rejected() {
+        let root = workspace("escape");
+        assert!(resolve_openable_path("../outside.txt", Some(&root), &[]).is_none());
+        assert!(resolve_openable_path("src/../../outside.txt", Some(&root), &[]).is_none());
+        let outside = std::env::temp_dir().join("definitely-outside-pigo-fsops.txt");
+        assert!(resolve_openable_path(&outside.to_string_lossy(), Some(&root), &[]).is_none());
+        assert!(resolve_openable_path("~/.ssh/id_rsa", Some(&root), &[]).is_none());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// Extra roots (scratch, attachments) must compare in the same space too.
+    #[test]
+    fn extra_roots_are_honored() {
+        let root = workspace("main");
+        let scratch = workspace("scratch");
+        let file = scratch.join("src").join("main.go");
+        let extra = vec![scratch.clone()];
+        assert!(resolve_openable_path(&file.to_string_lossy(), Some(&root), &extra).is_some());
+        fs::remove_dir_all(&root).ok();
+        fs::remove_dir_all(&scratch).ok();
+    }
 }

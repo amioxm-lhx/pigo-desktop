@@ -64,6 +64,13 @@ interactive REPL/TUI.
   producing two tools under one `mcp_<server>_<tool>` name. The project layer
   now overrides the global entry in place (matching the desktop client), and its
   file-level `enabled = false` switch is honoured like the global layer's.
+- Desktop on Windows: no file in the workspace panel could be opened, while the
+  same tree worked on macOS. The allowed roots were kept lexically normalized
+  (`D:\...`) but the clicked path was canonicalized (`\\?\D:\...`, and with the
+  8.3 short name when it came from `%TEMP%`), so `starts_with` failed and every
+  click was answered with "path outside allowed roots". Directory listing was
+  unaffected because it never compares against the roots. Both sides now resolve
+  through the same canonicalization.
 
 ## [0.5.6] - 2026-09-12
 
