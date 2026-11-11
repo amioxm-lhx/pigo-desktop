@@ -157,9 +157,9 @@
   justify-content: center;
   border-radius: var(--radius-2xs);
   color: var(--ds-text-muted);
-  opacity: 0;
+  /* Keep the project "new task" action visible without hovering the row. */
+  opacity: 1;
   transition:
-    opacity var(--motion-duration-fast) var(--motion-ease-out),
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out),
     transform var(--motion-duration-fast) var(--motion-ease-out);

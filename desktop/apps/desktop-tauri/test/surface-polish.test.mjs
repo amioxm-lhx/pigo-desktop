@@ -41,6 +41,28 @@ test("work panel interactive rows ease hover fills with motion tokens", () => {
   }
 });
 
+test("sidebar action buttons are visible without hovering", () => {
+  // Section toolbar (sort / new session / new project), project row "..." and
+  // project "new task" used to be opacity:0 until :hover/:focus-within.
+  for (const selector of [
+    ".sidebar-toolbar-button",
+    ".thread-item-more",
+    ".sidebar-session-group-add",
+  ]) {
+    const escaped = selector.replace(".", "\\.");
+    const block = styles.match(new RegExp(`${escaped}\\s*\\{[^}]*\\}`))?.[0] ?? "";
+    assert.match(block, /opacity:\s*1\s*;/, `${selector} should be visible by default`);
+  }
+  for (const hoverRule of [
+    ".sidebar-list-toolbar:hover .sidebar-toolbar-button",
+    ".thread-item:hover .thread-item-more",
+    ".sidebar-session-group-header:hover .thread-item-more",
+    ".sidebar-session-group-header:hover .sidebar-session-group-add",
+  ]) {
+    assert.ok(!styles.includes(hoverRule), `${hoverRule} should not gate visibility on hover`);
+  }
+});
+
 test("button press feedback eases transform instead of snapping", () => {
   for (const selector of [
     ".btn",

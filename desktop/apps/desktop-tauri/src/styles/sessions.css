@@ -275,24 +275,12 @@
   justify-content: center;
   border-radius: var(--radius-2xs);
   color: var(--ds-text-muted);
-  opacity: 0;
+  /* Sidebar row actions stay visible at all times; only their hover/active
+     surface changes. No hover-to-reveal opacity gating. */
+  opacity: 1;
   transition:
-    opacity var(--motion-duration-fast) var(--motion-ease-out),
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out);
-}
-
-.thread-item:hover .thread-item-more,
-.sidebar-session-group-header:hover .thread-item-more,
-.sidebar-session-group-header:focus-within .thread-item-more,
-.thread-item.active .thread-item-more:hover,
-.thread-item-more[aria-expanded="true"] {
-  opacity: 1;
-}
-
-.thread-item:focus-within .thread-item-more,
-.thread-item-more:focus-visible {
-  opacity: 1;
 }
 
 .thread-item-more:hover,
@@ -480,25 +468,13 @@
   justify-content: center;
   border-radius: var(--radius-2xs);
   color: var(--ds-text-muted);
-  opacity: 0;
+  /* Section toolbar actions (sort / new session / new project) are always
+     visible instead of appearing only when the header is hovered. */
+  opacity: 1;
   transition:
-    opacity var(--motion-duration-fast) var(--motion-ease-out),
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out),
     transform var(--motion-duration-fast) var(--motion-ease-out);
-}
-
-.sidebar-list-toolbar:hover .sidebar-toolbar-button,
-.sidebar-list-toolbar:focus-within .sidebar-toolbar-button,
-.sidebar-toolbar-button:hover,
-.sidebar-toolbar-button:focus-visible,
-.sidebar-toolbar-button.active {
-  opacity: 1;
-}
-
-.sidebar-session-group-header:hover .sidebar-session-group-add,
-.sidebar-session-group-header:focus-within .sidebar-session-group-add {
-  opacity: 1;
 }
 
 .sidebar-toolbar-button:hover,
@@ -842,15 +818,6 @@
 
 .sidebar-disclosure-icon.collapsed {
   transform: rotate(-90deg);
-}
-
-.sidebar-session-group-header:hover .sidebar-session-group-add,
-.sidebar-session-group-header:focus-within .sidebar-session-group-add,
-.sidebar-session-group-header:hover .sidebar-menu-wrap,
-.sidebar-session-group-header:focus-within .sidebar-menu-wrap,
-.sidebar-session-group-header:hover .sidebar-menu-wrap .thread-item-more,
-.sidebar-session-group-header:focus-within .sidebar-menu-wrap .thread-item-more {
-  opacity: 1;
 }
 
 .sidebar-project-active-dot {
