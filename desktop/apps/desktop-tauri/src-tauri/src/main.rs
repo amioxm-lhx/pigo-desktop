@@ -9,6 +9,8 @@ mod browser;
 mod catalog;
 mod collaboration;
 mod composer;
+mod control_server;
+mod remote_channel;
 mod desktop_control;
 mod envelope;
 mod events;
@@ -105,6 +107,7 @@ fn main() {
     ));
 
     let stocks_engine = stocks::StocksEngine::new(data_dir.clone());
+    let remote_channel = Arc::new(remote_channel::RemoteChannel::new(data_dir.clone()));
     let app_state = Arc::new(state::AppState {
         data_dir,
         host,
@@ -130,6 +133,7 @@ fn main() {
         staff: staff_driver::Resident::new(),
         watch: staff_watch::Watch::new(),
         stocks: stocks_engine,
+        remote_channel,
     });
     let app_state_for_events = app_state.clone();
 
@@ -160,6 +164,22 @@ fn main() {
             if let Err(e) = shell::create_tray(&handle) {
                 log::warn!("tray creation failed: {e}");
             }
+            // Remote-driver endpoint for `pigo im serve --session-host desktop`.
+            // Best-effort: a channel that cannot start must not keep the app
+            // from opening, it only loses remote control.
+            match control_server::start(handle.clone(), app_state.clone()) {
+                Ok(control) => {
+                    log::info!("control endpoint on port {}", control.port());
+                    handle.manage(control);
+                }
+                Err(e) => log::warn!("control endpoint unavailable: {e}"),
+            }
+            // A remote channel the user left switched on comes back now, once
+            // its endpoint exists. Failure is only worth a log line: the app
+            // must still open with a channel that cannot start.
+            if let Err(e) = remote_channel::autostart(&app_state) {
+                log::warn!("remote channel autostart failed: {e}");
+            }
             events::install_sidecar_proxy(handle.clone(), &app_state);
             events::dispatch(handle.clone(), app_state.clone(), host_rx, sidecar_rx);
             // The resident staff driver starts only after the handshakes: a
@@ -189,6 +209,14 @@ fn main() {
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 shell::restore_main_window(app_handle);
+            }
+            // The remote-control channel is a child of this process and needs
+            // it for sessions; leaving it running would give the user a bot
+            // that answers every message with a connection error.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app_handle.try_state::<std::sync::Arc<state::AppState>>() {
+                    state.remote_channel.shutdown();
+                }
             }
             #[cfg(not(target_os = "macos"))]
             {

@@ -34,6 +34,7 @@ import (
 	"github.com/smallnest/pigo/internal/cli/config"
 	"github.com/smallnest/pigo/internal/cli/evalscmd"
 	"github.com/smallnest/pigo/internal/cli/headless"
+	"github.com/smallnest/pigo/internal/cli/imcmd"
 	"github.com/smallnest/pigo/internal/cli/pkgcmd"
 	"github.com/smallnest/pigo/internal/cli/repl"
 	"github.com/smallnest/pigo/internal/cli/run"
@@ -202,6 +203,14 @@ func main() {
 	// shares nothing with the interactive/headless flag surface.
 	if len(os.Args) > 1 && os.Args[1] == "evals" {
 		os.Exit(evalscmd.Run(context.Background(), os.Args[2:], os.Stdout, os.Stderr))
+	}
+
+	// The im subcommand (pigo im serve|bindings) is the remote-control channel
+	// surface. Like evals it is a positional, standalone mode that shares
+	// nothing with the interactive/headless flag surface, so it dispatches
+	// before pflag parsing.
+	if len(os.Args) > 1 && os.Args[1] == "im" {
+		os.Exit(imcmd.Run(context.Background(), os.Args[2:], os.Stdout, os.Stderr))
 	}
 
 	// Package-management subcommands (pigo install|list|uninstall|update ...) are

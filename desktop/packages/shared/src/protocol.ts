@@ -158,6 +158,19 @@ export const IPC = {
     stocksWatchList: "pi-desktop/stocks/watch/list",
     stocksWatchAdd: "pi-desktop/stocks/watch/add",
     stocksWatchRemove: "pi-desktop/stocks/watch/remove",
+    // Remote-control channel: settings, the supervised `pigo im serve` child,
+    // and the native picker for the pigo binary.
+    imChannelGet: "pi-desktop/im/channel/get",
+    imChannelSave: "pi-desktop/im/channel/save",
+    imChannelClearSecret: "pi-desktop/im/channel/clearSecret",
+    imChannelStart: "pi-desktop/im/channel/start",
+    imChannelStop: "pi-desktop/im/channel/stop",
+    imChannelPickBinary: "pi-desktop/im/channel/pickBinary",
+    // WeChat pairs by scanning, so the page runs the same login command a
+    // terminal would and renders the QR the child produces.
+    imChannelLogin: "pi-desktop/im/channel/login",
+    imChannelLoginCode: "pi-desktop/im/channel/loginCode",
+    imChannelLoginCancel: "pi-desktop/im/channel/loginCancel",
     staffPresetsList: "pi-desktop/staff/presets/list",
     staffPresetsInstall: "pi-desktop/staff/presets/install",
     staffProfilesList: "pi-desktop/staff/profiles/list",

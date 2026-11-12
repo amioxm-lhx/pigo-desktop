@@ -56,6 +56,9 @@ import type {
   PluginServiceStatus,
   PluginViewMeta,
   PluginTheme,
+  RemoteChannelPatch,
+  RemoteChannelPickResult,
+  RemoteChannelState,
   MarketPluginSummary,
   MarketPluginDetail,
   PluginInstallResult,
@@ -667,6 +670,23 @@ export const api = {
     ),
   removeStocksWatch: (code: string) =>
     invoke<{ removed: boolean }>(IPC.invoke.stocksWatchRemove, { code }),
+  // Remote-control channel. Every mutation answers with the whole state so a
+  // page never has to guess what the shell did with its request.
+  getRemoteChannel: () => invoke<RemoteChannelState>(IPC.invoke.imChannelGet),
+  saveRemoteChannel: (settings: RemoteChannelPatch) =>
+    invoke<RemoteChannelState>(IPC.invoke.imChannelSave, { settings }),
+  clearRemoteChannelSecret: () =>
+    invoke<RemoteChannelState>(IPC.invoke.imChannelClearSecret),
+  startRemoteChannel: () => invoke<RemoteChannelState>(IPC.invoke.imChannelStart),
+  stopRemoteChannel: () => invoke<RemoteChannelState>(IPC.invoke.imChannelStop),
+  pickRemoteChannelBinary: () =>
+    invoke<RemoteChannelPickResult>(IPC.invoke.imChannelPickBinary),
+  // WeChat pairs by scanning, so the page drives the same login command a
+  // terminal would and renders the QR it produces.
+  loginRemoteChannel: () => invoke<RemoteChannelState>(IPC.invoke.imChannelLogin),
+  submitRemoteChannelLoginCode: (code: string) =>
+    invoke<RemoteChannelState>(IPC.invoke.imChannelLoginCode, { code }),
+  cancelRemoteChannelLogin: () => invoke<RemoteChannelState>(IPC.invoke.imChannelLoginCancel),
   listStaffProfiles: () =>
     invoke<{ profiles: StaffCredentialProfile[] }>(IPC.invoke.staffProfilesList),
   createStaffProfile: (input: {
