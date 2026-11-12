@@ -83,6 +83,10 @@ pub struct AppState {
     pub watch: Arc<crate::staff_watch::Watch>,
     /// 选股神器: the hithink-finance engine, its caches and the watchlist.
     pub stocks: Arc<crate::stocks::StocksEngine>,
+    /// Remote-control channel (Feishu): its settings and the `pigo im serve`
+    /// child it supervises. One child at most — two bots on the same app would
+    /// answer every message twice.
+    pub remote_channel: Arc<crate::remote_channel::RemoteChannel>,
 }
 
 impl AppState {

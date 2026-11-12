@@ -90,3 +90,90 @@ no_skills = false
 # percentage of the provider window ("50%"). It only lowers the trigger point and
 # is always clamped by the provider limit.
 # max_context = "300K"
+
+# --- Remote control over IM (pigo im serve) ---
+
+# [im] turns an instant-messaging channel into a remote control surface for a
+# pigo session. Two channels are supported, picked with
+# `pigo im serve --channel feishu|wechat` (default feishu):
+#
+#   feishu  an enterprise self-built app with the WebSocket long-connection
+#           event mode — no public IP, no domain, no reverse proxy, only
+#           outbound internet access.
+#   wechat  a personal WeChat account (ClawBot) over the iLink bot protocol —
+#           HTTPS long polling, and bound by scanning a QR code once.
+#
+# Feishu setup, in the Feishu developer console (open.feishu.cn):
+#   1. Create an enterprise self-built app; copy App ID / App Secret.
+#   2. 事件与回调 → 事件配置: choose 「使用长连接接收事件」, subscribe
+#      im.message.receive_v1 (and 卡片回传交互 for the approval buttons).
+#   3. 权限: im:message, im:message:send_as_bot.
+#   4. 发布 a version so the bot is usable.
+#   5. Put the App Secret in $PIGO_HOME/.credentials.yaml (mode 0600) under a
+#      name, and reference that name here — do not paste the secret into this
+#      file:
+#
+#        feishu-app-secret: <secret>
+#
+# [im]
+# enabled = true
+# # confirm (default) asks before bash/write/edit; allow runs them unasked and
+# # should only be used when the chat is as trusted as the terminal; deny makes
+# # the channel read-only.
+# tool_policy = "confirm"
+# approval_timeout = "10m"     # how long a confirmation card waits; then denied
+# session_cwd = ""             # working directory for new sessions (default: cwd)
+# egress_warning = true        # one-time note that content leaves via the platform
+# # Where the sessions this channel drives actually live:
+# #   "cli"     (default) this process runs them against the local pigo store
+# #   "desktop" attach to a running pigo desktop app, so a chat from Feishu
+# #             continues the same conversation the app shows. The app must be
+# #             running; tool confirmations are answered in the app's window,
+# #             not with a card.
+# session_host = "cli"
+#
+# [im.feishu]
+# enabled = true
+# app_id = "cli_xxxxxxxxxxxxxxxx"
+# credential = "feishu-app-secret"
+# app_secret = ""              # literal fallback; credential = wins
+# # REQUIRED: without an allow list the channel refuses every message. Values are
+# # open_id (ou_…) or email. An empty list makes `pigo im serve` exit with an
+# # explanation rather than start a bot nobody can talk to.
+# allowed_users = ["ou_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+# allow_groups = false         # group chats additionally must @ the bot
+# # require_mention = true
+# queue_depth = 3              # messages that may wait per chat; the next one is
+#                              # answered with "排队太多，稍后再试。"
+# reject_cooldown = "10s"      # throttle for that reply, so a burst gets one
+# progress_throttle = "2s"     # min interval between card updates
+# model = ""                   # override [im]-level model for this channel
+# cwd = ""                     # override the working directory for this channel
+#
+# [im.wechat] drives a personal WeChat account (ClawBot) over Tencent's iLink bot
+# protocol — plain HTTPS long polling, so nothing has to be reachable from
+# outside. There is no App ID and no secret to paste: the bot token only exists
+# as the result of a scan, so bind first (once per account — a second scan
+# invalidates the first token, which the running channel reports as errcode -14):
+#
+#   pigo im login --channel wechat
+#
+# The token, the message cursor and the per-peer context tokens live in
+# $PIGO_HOME/im/wechat.json (mode 0600), not in this file.
+#
+# [im.wechat]
+# enabled = true
+# # REQUIRED, same rule as Feishu: the peer id the channel prints the first time
+# # that person speaks. An empty list makes `pigo im serve` refuse to start.
+# allowed_users = ["wxid_xxxxxxxxxxxx"]
+# # base_url = ""             # empty uses the host the scan returned
+# queue_depth = 3
+# reject_cooldown = "10s"
+# progress_throttle = "2s"
+# model = ""
+# cwd = ""
+#
+# Two platform limits shape what a WeChat chat can do, and both fail closed:
+# messages cannot be edited once sent (a single final answer, no progress card),
+# and there are no interactive buttons (tool approval is a numbered text prompt
+# answered with 同意 / 本会话允许 / 拒绝; anything else keeps waiting).

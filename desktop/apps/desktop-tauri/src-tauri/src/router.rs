@@ -152,6 +152,14 @@ pub async fn route(
         };
     }
 
+    // Remote-control channel (Feishu). One entry point rather than six match
+    // arms: the supervision of the `pigo im serve` child belongs in one place.
+    if channel.starts_with("pi-desktop/im/channel/") {
+        if let Some(result) = crate::remote_channel::handle(channel, state, &params) {
+            return result;
+        }
+    }
+
     // Plugin registry mutations need a runtime reconcile after host-core
     // commits; they are otherwise the same pure proxy shape.
     if let Some(method) = PLUGIN_ROW_CHANNELS
@@ -196,6 +204,18 @@ pub async fn route(
             envelope_result("host", state.host.call("settings.set", merged).await)
         }
         "pi-desktop/app/systemFonts" => ok(json!([])),
+        // The pigo binary the remote channel will run. Picked here rather than
+        // in the page because only the shell can open a native dialog.
+        "pi-desktop/im/channel/pickBinary" => {
+            #[cfg(windows)]
+            let extensions: &[&str] = &["exe"];
+            #[cfg(not(windows))]
+            let extensions: &[&str] = &[];
+            match native::pick_file(&app, "pigo", extensions) {
+                Some(path) => ok(json!({ "canceled": false, "path": path.to_string_lossy() })),
+                None => ok(json!({ "canceled": true })),
+            }
+        }
 
         // ── updates (electron-updater is phase 2) ─────────────────────────
         "pi-desktop/updates/getState" => ok(json!({
@@ -340,8 +360,35 @@ pub async fn route(
             };
             crate::queue::prioritize(&app, state, &params, id).await
         }
+        "pi-desktop/tool/pendingPermissions" => {
+            // The host owns the open permission queue (D374/D375). A client
+            // that attached after `permissions.request` was emitted — the
+            // remote-control channel is exactly such a client — reads it here.
+            envelope_result("host", state.host.call("permissions.pending", params).await)
+        }
         "pi-desktop/tool/resolvePermission" => {
-            envelope_result("host", state.host.call("permissions.resolve", params).await)
+            let result = envelope_result(
+                "host",
+                state.host.call("permissions.resolve", params.clone()).await,
+            );
+            // A decision can come from the window or from a remote card. Whichever
+            // wins, the other view must drop its now-stale prompt: the host has
+            // already consumed the request and a second click would fail with
+            // NOT_FOUND. The renderer matches by requestId across all sessions,
+            // so a missing sessionId in the payload is harmless.
+            if result.get("ok").and_then(Value::as_bool) == Some(true) {
+                if let Some(request_id) = params.get("requestId").and_then(Value::as_str) {
+                    let _ = app.emit(
+                        "pi-desktop/agent/event/message",
+                        json!({
+                            "sessionId": params.get("sessionId").cloned().unwrap_or(Value::Null),
+                            "ts": now_ms(),
+                            "event": { "type": "tool_permission_resolved", "requestId": request_id },
+                        }),
+                    );
+                }
+            }
+            result
         }
         "pi-desktop/plans/resolve" => {
             envelope_result("host", state.host.call("plans.resolve", params).await)

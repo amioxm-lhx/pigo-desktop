@@ -13,6 +13,7 @@ export type SettingsTabId =
   | "agent"
   | "skills"
   | "mcp"
+  | "channels"
   | "subagents"
   | "import"
   | "projects"
@@ -165,6 +166,20 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.capabilityFilterProject",
       "extensions.mcp.test",
       "extensions.mcp.remove",
+    ],
+  },
+  {
+    id: "channels",
+    labelKey: "settings.nav.channels",
+    titleKey: "settings.remoteChannel.title",
+    group: "agent",
+    keywordKeys: [
+      "settings.remoteChannel.description",
+      "settings.remoteChannel.feishuTitle",
+      "settings.remoteChannel.appId",
+      "settings.remoteChannel.allowedUsers",
+      "settings.remoteChannel.toolPolicy",
+      "settings.remoteChannel.statusTitle",
     ],
   },
   {

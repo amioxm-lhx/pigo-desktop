@@ -157,6 +157,31 @@ export function createEventsSlice({
         get().handleBtwEvent(envelope);
         return;
       }
+      // A permission request can be answered from another view: the remote IM
+      // channel resolves the same host-issued requestId through the control
+      // endpoint. The host has already consumed it, so this window must drop
+      // the stale card. Handle it before the active-session gate below — a
+      // background session's card is just as stale as the visible one.
+      const resolution = envelope.event as unknown as {
+        type?: string;
+        requestId?: string;
+      };
+      if (resolution.type === "tool_permission_resolved" && resolution.requestId) {
+        const requestId = resolution.requestId;
+        set((state) => {
+          const next = { ...state.pendingPermissions };
+          let changed = false;
+          for (const [sessionId, queue] of Object.entries(next)) {
+            const remaining = queue.filter((entry) => entry.requestId !== requestId);
+            if (remaining.length === queue.length) continue;
+            changed = true;
+            if (remaining.length > 0) next[sessionId] = remaining;
+            else delete next[sessionId];
+          }
+          return changed ? { pendingPermissions: next } : state;
+        });
+        return;
+      }
       const event = envelope.event;
       if (event.type === "agent_end" || event.type === "error") {
         runtime.submittedComposerDrafts.delete(envelope.sessionId);

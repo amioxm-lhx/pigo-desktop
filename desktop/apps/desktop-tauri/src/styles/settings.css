@@ -3171,3 +3171,297 @@
 .sklm-page-jump::placeholder {
   color: var(--ds-text-muted);
 }
+
+/*
+  Remote-control channel page. The page is a status dashboard first and a form
+  second: an operator arriving here usually wants to know whether the bot is
+  alive and what it last complained about, so the state row and the log get the
+  visual weight.
+*/
+.im-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.im-channel-note {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.im-channel-intro {
+  max-width: 68ch;
+}
+
+/* Channel switch. Aligned to the card edge rather than stretched, because the
+   two labels are short and a full-width track would imply more options. */
+.im-channel-tabs {
+  align-self: flex-start;
+}
+
+.im-channel-tabs .settings-segment-item {
+  cursor: pointer;
+}
+
+.im-channel-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.im-channel-meta {
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The action cluster sits at the end of the state row, but must not stretch the
+   row's height when it wraps on a narrow content column. */
+.im-channel-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.im-channel-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.im-channel-code {
+  overflow: hidden;
+  flex: 1 1 auto;
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-inset);
+  padding: 4px 8px;
+  color: var(--ds-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.im-channel-secret {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.im-channel-warn {
+  color: var(--ds-warning);
+}
+
+/* A refused sender is an invitation, not an error: the channel working exactly
+   as designed, with one actionable line. Warning-toned rather than error-toned
+   so it does not read as "the setup is broken". */
+.im-channel-invite {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid color-mix(in oklab, var(--ds-warning) 35%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--ds-warning) 8%, transparent);
+  padding: 12px 16px;
+}
+
+.im-channel-invite-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.im-channel-invite-text strong {
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.im-channel-invite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.im-channel-invite-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.im-channel-invite-list .im-channel-code {
+  flex: 0 1 auto;
+  max-width: 60%;
+}
+
+.im-channel-error {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 16px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--ds-error) 10%, transparent);
+  padding: 10px 12px;
+  color: var(--ds-error);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.im-channel-error strong {
+  font-weight: var(--font-weight-medium);
+}
+
+/* An unmet prerequisite is a checklist, not an alarm: it is the normal state
+   while the form is still being filled in. */
+.im-channel-blockers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 16px 12px;
+  padding-left: 18px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.im-channel-save {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+}
+
+/*
+  WeChat pairing. The QR is the actual credential, so it gets its own block
+  under the row rather than being squeezed into the control column: at 220px it
+  would push the row layout apart on a narrow content column.
+*/
+.im-channel-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.im-channel-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--ds-border-subtle);
+  padding: 16px;
+}
+
+/* White backing on purpose: a QR printed on a dark surface is unscannable, and
+   this page ships both themes. Shown at half the 360px the Go side draws, so
+   each module lands on an integer number of device pixels and stays sharp —
+   no nearest-neighbour scaling property here (the renderer's brand guard bans
+   it outright). */
+.im-channel-qr-image {
+  display: block;
+  /* content-box keeps the 180px attribute as the image's own size; the global
+     border-box would shrink it to 164px and reintroduce the resampling. */
+  box-sizing: content-box;
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 8px;
+}
+
+.im-channel-qr-copy {
+  text-align: center;
+}
+
+/* The fallback link is meant to be copied into a phone, so it wraps instead of
+   being truncated, and selects as one unit. */
+.im-channel-qr-link {
+  max-width: 52ch;
+  color: var(--ds-text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-align: center;
+  word-break: break-all;
+  user-select: all;
+}
+
+.im-channel-qr-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.im-channel-qr-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.im-channel-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+  list-style: none;
+}
+
+.im-channel-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.im-channel-step-number {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-chip);
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.im-channel-log {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  padding: 12px 16px;
+  color: var(--ds-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.im-channel-config-path {
+  padding: 10px 16px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  word-break: break-all;
+}
+
+.im-channel-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+}

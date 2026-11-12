@@ -12,6 +12,76 @@ interactive REPL/TUI.
 ## [Unreleased]
 
 ### Added
+- **Tool confirmations in the Feishu channel when driving desktop sessions**:
+  a high-risk tool used to show its approval dialog only in the desktop window,
+  leaving a remote chat with no way to answer. The loopback control endpoint now
+  exposes the host's open permission queue (`permissions/pending` / `resolve`),
+  and `internal/im` mirrors it into the chat with a new `PermissionPoller`:
+  one card per request, `allow-once` / `allow-session` / `deny` mapped to the
+  host's decisions, fail-closed on any error or timeout, and cards withdrawn
+  when the window answers first (the window's own card is cleared in return).
+  `tool_policy = allow | deny` now applies to desktop sessions too.
+- **Feishu remote-control channel**: `pigo im serve` drives pigo sessions from
+  a Feishu chat over the SDK's WebSocket long connection, so the channel needs
+  no public IP, domain or reverse proxy. A chat is bound to one session
+  (`/new`, `/resume`, `/sessions`, `/stop`, `/status`, `/model`); one progress
+  card is patched in place into the final answer; side-effect tool calls ask for
+  confirmation on an interactive card and fail closed when nobody answers. New
+  `internal/im` package (Adapter / Router / BindingStore / ApprovalRouter /
+  per-chat Queue) sits on `internal/serve`, so no agent loop logic is
+  duplicated. Per-chat backlogs are bounded (default 3) and the overflow reply
+  is throttled, so a burst of messages yields one "排队太多，稍后再试。" rather
+  than a wall of them.
+- **Desktop sessions as an IM carrier**: `pigo im serve --session-host desktop`
+  attaches to a running pigo desktop app instead of running sessions itself, so
+  a request sent from Feishu continues the same conversation the app shows. The
+  shell publishes a loopback control endpoint (`control_server.rs`, random port
+  plus a per-launch 250-bit token in `.pi-agent-go-desktop/control.json`) that
+  exposes only session create/list/get/configure and the turn lifecycle —
+  settings, plugins, providers and deletes stay off it. `internal/im` now
+  depends on its own `SessionHost`/`AgentSession` interfaces rather than
+  `internal/serve` concrete types, with `ServeHost` as the local adapter and
+  `internal/im/desktop` as the remote one; progress there is polled from
+  `agent/status` and the transcript because the app's event stream is not
+  subscribeable from outside.
+- **Remote-channel settings page**: Settings → 远程控制 configures the Feishu
+  channel without hand-editing TOML. It stores App ID/secret/allow-list in the
+  app's data dir (`im-channel.json`, secret never returned to the renderer),
+  renders the `config.toml` handed to `pigo im serve`, and supervises that child
+  (`remote_channel.rs`): start/stop, resolved binary (explicit path → beside the
+  app → PATH), control-endpoint liveness, exit code, and the tail of its
+  stdout+stderr — which is where every real connection failure shows up. The
+  child is killed on app exit, since it needs the app for sessions.
+- **WeChat (ClawBot) remote-control channel**: `pigo im serve --channel wechat`
+  drives the same sessions from a personal WeChat chat over Tencent's iLink bot
+  protocol — plain HTTPS + JSON with long polling, so no SDK, no public IP and
+  none of Feishu's 3-second callback deadline. New `internal/im/wechat` adapter
+  reuses the existing `Adapter` / `Approver` interfaces, so `router.go`,
+  `queue.go` and the command set are untouched. Two platform limits are absorbed
+  there rather than leaking into the UI: **messages cannot be edited**, so
+  `Update` returns `im.ErrUpdateUnsupported` and the router sends exactly once at
+  `Final`; **there are no interactive buttons**, so a tool approval becomes a
+  numbered text prompt answered with 同意 / 本会话允许 / 拒绝 (matched exactly,
+  fail-closed on anything else). Per-peer `context_token` is echoed back to keep
+  replies threaded, the bot's own messages are filtered out of the update stream,
+  and errcode `-14` — a newer login replaced this token — pauses the poller for
+  an hour instead of retrying into the same wall. 64-bit message ids are decoded
+  as strings, because `any` would round-trip them through `float64` and lose the
+  low digits.
+- **WeChat pairing**: the bot token only exists as the result of a scan, so
+  `pigo im login --channel wechat` runs the QR state machine itself
+  (`wait` / `scaned` / `need_verifycode` / `scaned_but_redirect` / `expired` /
+  `confirmed`), follows a redirect host mid-flow, renders the QR as a PNG for
+  callers that cannot draw block art (`--qr-out`), and writes the credential to
+  `$PIGO_HOME/im/wechat.json` (0600, atomic temp+rename).
+- **Two channels in Settings → 远程控制**: the page now switches between 飞书 and
+  微信 instead of assuming Feishu. The WeChat tab offers pairing (start, show the
+  QR, submit the digits when the phone asks, cancel — refused while the channel
+  runs, since a new login invalidates the token it is using), the allowed-user
+  list, and an API base URL override. Only the selected channel's table is
+  written; the token never becomes a settings field, and "configured" means the
+  state file says so.
+
 - **Tauri + Rust desktop application**: `desktop/` replaces the Electron shell
   with a Tauri 2 app (`apps/desktop-tauri`), a Rust `host-core` with SQLite
   persistence, a Go sidecar, and shared / i18n / plugin-sdk packages.

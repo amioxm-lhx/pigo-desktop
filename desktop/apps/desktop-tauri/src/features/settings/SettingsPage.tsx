@@ -19,6 +19,7 @@ import {
   IconChevronLeft,
   IconDownload,
   IconFileText,
+  IconGlobe,
   IconInfo,
   IconKeyboard,
   IconSearch,
@@ -37,6 +38,7 @@ import { NetworkProxySection } from "../../components/settings/NetworkProxySecti
 import { ProjectsPage } from "../../pages/ProjectsPage";
 import { AgentSkillsPage } from "../../components/settings/AgentSkillsPage";
 import { AgentMcpPage } from "../../components/settings/AgentMcpPage";
+import { RemoteChannelsPage } from "../../components/settings/RemoteChannelsPage";
 import { AgentSubagentsPage } from "../../components/settings/AgentSubagentsPage";
 import {
   CommandShellRow,
@@ -174,6 +176,7 @@ export function SettingsPage() {
       agent: <IconBot size={14} />,
       skills: <IconBookOpen size={14} />,
       mcp: <IconServer size={14} />,
+      channels: <IconGlobe size={14} />,
       subagents: <IconBot size={14} />,
       import: <IconDownload size={14} />,
       projects: <IconArchive size={14} />,
@@ -411,6 +414,7 @@ export function SettingsPage() {
           {tab === "skills" && <AgentSkillsPage />}
 
           {tab === "mcp" && <AgentMcpPage />}
+          {tab === "channels" && <RemoteChannelsPage />}
 
           {tab === "subagents" && <AgentSubagentsPage />}
 

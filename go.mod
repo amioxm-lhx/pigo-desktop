@@ -12,6 +12,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/coder/websocket v1.8.13
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/larksuite/oapi-sdk-go/v3 v3.12.2
 	github.com/openai/openai-go v1.12.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
@@ -40,8 +41,10 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect

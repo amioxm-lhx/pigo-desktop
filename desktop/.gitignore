@@ -47,4 +47,6 @@ coverage/
 
 .playwright-mcp/
 .claude/
-.workbuddy
+.workbuddy/
+
+.msvc/

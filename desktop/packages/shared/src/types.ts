@@ -23,3 +23,4 @@ export * from "./types/workpanel.js";
 export * from "./types/filesystem.js";
 export * from "./types/staff.js";
 export * from "./types/stocks.js";
+export * from "./types/remotechannel.js";
