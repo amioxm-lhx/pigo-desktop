@@ -8,8 +8,8 @@ const markdownSource = await readFile(
   new URL("../src/components/Markdown.tsx", import.meta.url),
   "utf8",
 );
-const filesTabSource = await readFile(
-  new URL("../src/components/workpanel/FilesTab.tsx", import.meta.url),
+const fileViewerSource = await readFile(
+  new URL("../src/components/workpanel/FileViewer.tsx", import.meta.url),
   "utf8",
 );
 const shikiSource = await readFile(
@@ -64,7 +64,7 @@ test("markdown resolves relative file links against a base directory", () => {
     markdownSource,
     /toWorkspaceRel\(safeDecodeUri\(href\), root, baseDir\)/,
   );
-  assert.match(filesTabSource, /baseDir=\{fileDirOf\(selected\)\}/);
+  assert.match(fileViewerSource, /baseDir=\{fileDirOf\(path\)\}/);
 });
 
 test("code blocks use one-dark-pro with a single surface background", () => {

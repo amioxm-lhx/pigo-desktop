@@ -1775,7 +1775,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "Bu klasör boş",
       loading: "Yükleniyor…",
       error: "Bu konum okunamadı",
-      back: "Dosyalara dön",
       reveal: "Finder’da göster",
       binary: "İkili dosya — önizleme yok",
       tooLarge: "Dosya önizlemek için çok büyük"

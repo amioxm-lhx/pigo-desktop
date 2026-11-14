@@ -1777,7 +1777,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "This folder is empty",
       loading: "Loading…",
       error: "Couldn't read this location",
-      back: "Back to files",
       reveal: "Reveal in Finder",
       binary: "Binary file — preview unavailable",
       tooLarge: "File is too large to preview"

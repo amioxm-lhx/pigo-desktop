@@ -187,7 +187,6 @@ test("empty work panel context has no visible or retained resource state", () =>
     open: false,
     tabs: [],
     activeTabId: null,
-    fileRequest: null,
   });
 });
 
@@ -196,13 +195,11 @@ test("switching work panel contexts isolates session tabs and visible state", ()
     open: true,
     tabs: [browserPluginTab(), fileWorkPanelTab("src/App.tsx")],
     activeTabId: "file:src/App.tsx",
-    fileRequest: { path: "src/App.tsx", seq: 4 },
   };
   const sessionB = {
     open: false,
     tabs: [browserPluginTab()],
     activeTabId: browserPluginTab().id,
-    fileRequest: null,
   };
 
   const toB = switchWorkPanelContextState(
@@ -230,7 +227,6 @@ test("switching to a session without context returns an isolated empty state", (
     open: true,
     tabs: [toolWorkPanelTab("review")],
     activeTabId: "review",
-    fileRequest: null,
   };
   const switched = switchWorkPanelContextState(
     {},
@@ -251,7 +247,6 @@ test("a newer retained artifact is not overwritten by a stale visible projection
     open: true,
     tabs: [toolWorkPanelTab("review")],
     activeTabId: "review",
-    fileRequest: null,
   };
   const switched = switchWorkPanelContextState(
     { "session-a": retained },

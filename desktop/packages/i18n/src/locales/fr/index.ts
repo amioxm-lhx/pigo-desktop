@@ -1779,7 +1779,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "Ce dossier est vide",
       loading: "Chargement…",
       error: "Impossible de lire cet emplacement",
-      back: "Retour aux fichiers",
       reveal: "Révéler dans le Finder",
       binary: "Fichier binaire — aperçu indisponible",
       tooLarge: "Le fichier est trop volumineux pour être prévisualisé"

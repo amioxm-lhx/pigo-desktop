@@ -387,8 +387,6 @@ export type AppState = {
   /** Runtime-only work panel state owned by each conversation. */
   workPanelContexts: Record<string, WorkPanelContext>;
   workPanelWidth: number;
-  /** Chat-initiated "preview this file" request consumed by the files viewer. */
-  workPanelFileRequest: { path: string; seq: number; mimeType?: string } | null;
   /** Toggle the selected subagent detail. */
   toggleSubagentPanel: (delegationId: string) => void;
   closeSubagentPanel: () => void;

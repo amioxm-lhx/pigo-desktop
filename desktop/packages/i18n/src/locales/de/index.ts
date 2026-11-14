@@ -1783,7 +1783,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "Dieser Ordner ist leer",
       loading: "Wird geladen…",
       error: "Dieser Speicherort konnte nicht gelesen werden",
-      back: "Zurück zu Dateien",
       reveal: "Im Finder anzeigen",
       binary: "Binärdatei – Vorschau nicht verfügbar",
       tooLarge: "Datei ist zu groß für die Vorschau"

@@ -16,7 +16,7 @@ import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const srcDir = join(root, "apps/desktop/src");
+const srcDir = join(root, "apps/desktop-tauri/src");
 
 const CSS_PROPS = /^\s*(font-size|font-weight|line-height|letter-spacing|border-radius)\s*:\s*([^;]+);?/;
 const TSX_ARBITRARY = /\b(?:text|rounded|leading|tracking|font)-\[[^\]]+\]/g;

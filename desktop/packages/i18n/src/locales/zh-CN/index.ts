@@ -1760,7 +1760,6 @@ wait: "乖离过大不追，等回踩 5 日线 {{anchor}} 附近再接",
       empty: "此目录为空",
       loading: "加载中…",
       error: "无法读取此位置",
-      back: "返回文件列表",
       reveal: "在 Finder 中显示",
       binary: "二进制文件，无法预览",
       tooLarge: "文件过大，无法预览"

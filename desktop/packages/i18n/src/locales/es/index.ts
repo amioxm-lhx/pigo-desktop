@@ -1779,7 +1779,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "Esta carpeta está vacía",
       loading: "Cargando...",
       error: "No se pudo leer esta ubicación",
-      back: "Volver a los archivos",
       reveal: "Mostrar en el Finder",
       binary: "Archivo binario: vista previa no disponible",
       tooLarge: "El archivo es demasiado grande para obtener una vista previa"

@@ -428,8 +428,8 @@
 
 .title-nav-btn {
   display: inline-flex;
-  height: 22px;
-  width: 22px;
+  height: var(--ds-titlebar-nav-size);
+  width: var(--ds-titlebar-nav-size);
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-2xs);
@@ -538,7 +538,13 @@
 }
 
 .conversation-topbar.ct-work-panel-open .ct-right {
-  padding-right: 0;
+  /*
+   * The dock's floating toggle moves out of this corner once the panel is open,
+   * so the 36px reserve is no longer needed — but the action tiles must not sit
+   * flush against the dock's first tab either: two grey tiles separated by a
+   * couple of pixels read as one crowded block (and two folder glyphs touching).
+   */
+  padding-right: 12px;
 }
 
 .conversation-topbar .ct-title-wrap {

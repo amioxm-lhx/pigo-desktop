@@ -139,9 +139,22 @@
   -webkit-app-region: drag;
 }
 
-/* In preview mode the panel can move to the window's left edge when the sidebar
-   is collapsed. Keep its first tab clear of both macOS's hiddenInset traffic
-   lights and the preview row's sidebar/new-task action group. */
+/*
+  In preview mode the panel takes the window's left edge, where the shell's
+  chrome row paints the sidebar toggle and the new-task action at z-index 200.
+  Both platforms need the same lane reserved or those two tiles land on top of
+  the first tab's icon; macOS adds its hiddenInset traffic lights (76px) on top
+  of the lane, Windows and Linux have no decorations of their own.
+*/
+.app-shell.work-panel-maximized .work-panel-header {
+  padding-left: calc(8px + var(--ds-preview-action-lane-width));
+}
+
+/* An open sidebar leaves only the new-task tile in that row. */
+.app-shell.work-panel-maximized:not(.sidebar-collapsed) .work-panel-header {
+  padding-left: calc(16px + var(--ds-titlebar-nav-size));
+}
+
 :root[data-platform="darwin"]:not([data-fullscreen="true"])
   .app-shell.work-panel-maximized.sidebar-collapsed
   .work-panel-header {
@@ -187,7 +200,9 @@
   height: 32px;
   flex: 1 1 auto;
   align-items: center;
-  gap: 6px;
+  /* Inactive tabs carry no chrome of their own, so the gap is the only thing
+     separating one label from the next tab's icon. */
+  gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
@@ -225,7 +240,7 @@
   flex: 1 1 auto;
   align-items: center;
   gap: 6px;
-  padding: 0 2px 0 10px;
+  padding: 0 6px 0 10px;
   color: inherit;
   text-align: left;
 }
@@ -252,11 +267,12 @@
 
 .work-panel-tab-close {
   display: inline-flex;
-  width: 24px;
+  width: 20px;
   height: 24px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  margin-right: 2px;
   border-radius: var(--radius-sm);
   color: var(--ds-text-muted);
   opacity: 0;
@@ -1170,6 +1186,18 @@
   background: var(--ds-bg-dock-raised);
 }
 
+.file-viewer-name {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+}
+
 .file-viewer-path {
   flex: 1;
   min-width: 0;
@@ -1180,7 +1208,7 @@
   text-align: left;
   font-family: var(--font-mono);
   font-size: var(--text-xs-plus);
-  color: var(--ds-text-primary);
+  color: var(--ds-text-muted);
 }
 
 .file-viewer-size {
@@ -1208,7 +1236,26 @@
 }
 
 .file-viewer-line {
+  display: flex;
   min-height: 1em;
+}
+
+/* Pinned to the left edge so a long line cannot scroll its own number away. */
+.file-viewer-gutter {
+  position: sticky;
+  left: 0;
+  flex: 0 0 auto;
+  width: 4ch;
+  padding-right: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-dock);
+  user-select: none;
+}
+
+.file-viewer-source {
+  white-space: pre;
 }
 
 .file-viewer-cap {

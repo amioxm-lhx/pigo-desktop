@@ -36,6 +36,7 @@ import {
 } from "../icons";
 import { ReviewTab } from "./ReviewTab";
 import { FilesTab } from "./FilesTab";
+import { FileViewer } from "./FileViewer";
 import { PluginViewTab } from "./PluginViewTab";
 import { SubagentPanel } from "./SubagentPanel";
 import type { SubagentPanelSelection } from "../../lib/subagent-panel";
@@ -184,6 +185,7 @@ export function WorkPanel({
   const replaceWorkPanelTab = useAppStore((s) => s.replaceWorkPanelTab);
   const setWidth = useAppStore((s) => s.setWorkPanelWidth);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const treeTab = tabs.find((tab) => tab.kind === "files") ?? null;
   const tools = workPanelTools(t, pluginViews);
 
   const [panelDragWidth, setPanelDragWidth] = useState<number | null>(null);
@@ -587,8 +589,7 @@ export function WorkPanel({
               <ReviewTab />
             </div>
           )}
-          {!subagentPanel &&
-            (activeTab?.kind === "file" || activeTab?.kind === "files") && (
+          {!subagentPanel && activeTab?.kind === "file" && (
             <div
               key={activeTab.id}
               id={`work-panel-surface-${activeTab.id}`}
@@ -596,7 +597,29 @@ export function WorkPanel({
               role="tabpanel"
               aria-labelledby={`work-panel-tab-${activeTab.id}`}
             >
-              <FilesTab ignoreFileRequest={activeTab.kind === "files"} />
+              <FileViewer
+                path={activeTab.resource ?? ""}
+                mimeType={activeTab.mimeType}
+              />
+            </div>
+          )}
+          {/*
+            The folder tree stays mounted while another tab is active: it is the
+            navigator for the file tabs beside it, and remounting it on every
+            return would collapse every expanded folder and lose the scroll
+            position. It renders no native surface, so hiding it is cheap.
+          */}
+          {treeTab && (
+            <div
+              id={`work-panel-surface-${treeTab.id}`}
+              className={cx(
+                "work-panel-tabpane",
+                (subagentPanel || activeTabId !== treeTab.id) && "is-hidden",
+              )}
+              role="tabpanel"
+              aria-labelledby={`work-panel-tab-${treeTab.id}`}
+            >
+              <FilesTab />
             </div>
           )}
           {!subagentPanel &&

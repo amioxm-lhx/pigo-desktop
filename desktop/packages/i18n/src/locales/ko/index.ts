@@ -1760,7 +1760,6 @@ wait: "Too extended to chase; wait for a pullback to the 5-day MA near {{anchor}
       empty: "이 폴더는 비어 있습니다",
       loading: "불러오는 중…",
       error: "이 위치를 읽을 수 없습니다",
-      back: "파일로 돌아가기",
       reveal: "Finder에서 보기",
       binary: "바이너리 파일 — 미리 볼 수 없음",
       tooLarge: "파일이 너무 커서 미리 볼 수 없음"

@@ -47,7 +47,6 @@ export function createInitialState(): AppStateData {
     activeWorkPanelTabId: null,
     workPanelContexts: {},
     workPanelWidth: initialWorkPanelWidth,
-    workPanelFileRequest: null,
     projectSort: initialSidebarPreferences.projectSort,
     messages: [],
     retainedSessionIds: [],
