@@ -65,3 +65,5 @@ book/images/*.pdf
 .qoder
 .vscode
 .workbuddy
+
+desktop/.msvc/
