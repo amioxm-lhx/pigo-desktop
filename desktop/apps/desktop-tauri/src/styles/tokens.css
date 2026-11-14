@@ -134,6 +134,10 @@
   --ds-work-panel-toggle-size: 28px;
   --ds-work-panel-toggle-inset: 12px;
   --ds-work-panel-toggle-gap: 20px;
+  /* One shell titlebar action tile. The preview lane below is two of these plus
+     a 4px gap and an 8px buffer, so the panel header can offset itself by the
+     same geometry instead of a second hand-counted literal. */
+  --ds-titlebar-nav-size: 22px;
   /* Preview-mode shell actions are two 22px buttons with a 4px gap and an
      additional 8px buffer before the panel's first tab. */
   --ds-preview-action-lane-width: 56px;

@@ -58,6 +58,12 @@ if (Test-Path $VcVars) {
     $env:AR_x86_64_pc_windows_msvc = "$Mini\bin\lib.exe"
 }
 
+# Native tools write warnings to stderr, and PowerShell 5.1 turns a merged
+# stderr line into a terminating NativeCommandError under the "Stop" preference
+# above — one Rust warning would abort the whole build. Every native call below
+# is judged by $LASTEXITCODE instead, so relax the preference from here on.
+$ErrorActionPreference = "Continue"
+
 # ---------- 1/4 Rust host-core ----------
 Step "[1/4] cargo build --release -p host-core"
 & cargo.exe build --release -p host-core 2>&1 | Tee-Object -FilePath $Log -Append
@@ -104,30 +110,48 @@ foreach ($f in @($Manifest, $Icon, $Embed)) {
 $Python = (Get-Command python -ErrorAction SilentlyContinue).Source
 if (-not $Python) { $Python = (Get-Command py -ErrorAction SilentlyContinue).Source }
 if (-not $Python) { Fail "未找到 python.exe / py.exe，Windows 资源注入需要 Python 3" }
-if (-not (Test-Path $MainExe)) {
-    & cargo.exe build --release -p pigo-desktop --features custom-protocol 2>&1 | Tee-Object -FilePath $Log -Append
-    if ($LASTEXITCODE -ne 0) { Fail "Tauri 主程序编译失败 (exit $LASTEXITCODE)" }
-}
-& $Python $Embed $MainExe $Manifest --icon $Icon 2>&1 | Tee-Object -FilePath $Log -Append
-if ($LASTEXITCODE -ne 0) { Fail "Windows 资源注入失败 (exit $LASTEXITCODE)" }
 
-# ---------- 4/4 Tauri bundle ----------
-Step "[4/4] Tauri 打包 (bundles: $Bundles)  -- 首次会下载 NSIS，请耐心等待"
-Push-Location (Join-Path $Root "apps\desktop-tauri")
-try {
-    & pnpm.cmd dlx "@tauri-apps/cli@^2" build --bundles $Bundles 2>&1 | Tee-Object -FilePath $Log -Append
-    if ($LASTEXITCODE -ne 0) { Fail "Tauri 打包失败 (exit $LASTEXITCODE)" }
-} finally {
-    Pop-Location
-}
+# ---------- 3.5/4 + 4/4 inject, bundle, verify ----------
+# `tauri build` compiles the crate with its own environment, so it relinks
+# whenever the renderer bundle changed — and that relink wipes the injected
+# .rsrc. There is no separate cargo invocation that leaves it idle. So: inject,
+# bundle, check; if the link ate the resources, inject the freshly linked
+# binary and bundle once more (the second pass finds cargo already up to date).
+$BundledWithResources = $false
+for ($attempt = 1; $attempt -le 2; $attempt++) {
+    if ($attempt -eq 1) {
+        Step "[3.5/4] 注入 Windows 资源 (Common-Controls v6 manifest + 窗口图标)"
+    } else {
+        Step "[3.5/4] 资源被重链接覆盖，重新注入后再次打包（第 2 次）"
+        # A relink produced a newer binary, so the saved pristine copy is an
+        # older build; the injector restores <exe>.bak first, which would ship
+        # the previous version. Drop it so the current binary is the baseline.
+        Remove-Item "$MainExe.bak" -Force -ErrorAction SilentlyContinue
+    }
+    & $Python $Embed $MainExe $Manifest --icon $Icon 2>&1 | Tee-Object -FilePath $Log -Append
+    if ($LASTEXITCODE -ne 0) { Fail "Windows 资源注入失败 (exit $LASTEXITCODE)" }
 
-# ---------- verify resources survived the bundle ----------
-# If cargo relinks during `tauri build`, the injected .rsrc is lost and the
-# installer would ship a broken exe. Detect that instead of silently failing.
-$check = (& $Python $Embed $MainExe $Manifest --check 2>&1) -join "`n"
-Add-Content -Path $Log -Value $check -Encoding UTF8
-if ($check -notmatch 'HAS resource') {
-    Fail "Tauri 打包阶段 cargo 重新链接了主程序，导致 .rsrc 丢失（会复现 TaskDialogIndirect 错误）。请重跑本脚本；注入步骤会自动从 .bak 恢复干净二进制。"
+    Step "[4/4] Tauri 打包 (bundles: $Bundles)  -- 首次会下载 NSIS，请耐心等待"
+    Push-Location (Join-Path $Root "apps\desktop-tauri")
+    try {
+        & pnpm.cmd dlx "@tauri-apps/cli@^2" build --bundles $Bundles 2>&1 | Tee-Object -FilePath $Log -Append
+        if ($LASTEXITCODE -ne 0) { Fail "Tauri 打包失败 (exit $LASTEXITCODE)" }
+    } finally {
+        Pop-Location
+    }
+
+    # ---------- verify resources survived the bundle ----------
+    $check = (& $Python $Embed $MainExe $Manifest --check 2>&1) -join "`n"
+    Add-Content -Path $Log -Value $check -Encoding UTF8
+    if ($check -match 'HAS resource') {
+        $BundledWithResources = $true
+        break
+    }
+    Write-Host "打包阶段 cargo 重新链接覆盖了 .rsrc，本次安装包不可用，正在重试…" -ForegroundColor Yellow
+    Add-Content -Path $Log -Value "retry: .rsrc lost during bundle" -Encoding UTF8
+}
+if (-not $BundledWithResources) {
+    Fail "两次尝试后 .rsrc 仍被覆盖（会复现 TaskDialogIndirect 错误）。请检查 target/release/pigo-desktop.exe 是否有安全软件改写。"
 }
 
 # ---------- result ----------

@@ -1,184 +1,48 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { FsEntry, FsReadResult } from "@pi-desktop/shared";
+import type { FsEntry } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
-import { Markdown } from "../Markdown";
-import { fileDirOf } from "../../lib/chat-links";
 import { cx } from "../ui";
-import { TooltipButton } from "../ui";
-import {
-  ensureLang,
-  getHighlightVersion,
-  resolveLang,
-  subscribeHighlighter,
-  themeForMode,
-  tokenizeIncremental,
-  type LineCache,
-} from "../../lib/shiki";
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconExternal,
-  IconFileText,
-  IconFolder,
-} from "../icons";
+import { IconChevronRight, IconFileText, IconFolder } from "../icons";
 import { WorkTabEmpty } from "./WorkTabEmpty";
-
-const VIEWER_LINE_CAP = 5000;
-
-const EXT_LANG: Record<string, string> = {
-  ts: "typescript",
-  tsx: "tsx",
-  js: "javascript",
-  jsx: "jsx",
-  mjs: "javascript",
-  cjs: "javascript",
-  json: "json",
-  css: "css",
-  html: "html",
-  md: "markdown",
-  rs: "rust",
-  py: "python",
-  go: "go",
-  sh: "shellscript",
-  zsh: "shellscript",
-  bash: "shellscript",
-  yml: "yaml",
-  yaml: "yaml",
-  toml: "toml",
-  sql: "sql",
-  swift: "swift",
-  kt: "kotlin",
-  java: "java",
-  c: "c",
-  h: "c",
-  cpp: "cpp",
-  hpp: "cpp",
-};
-
-function langForPath(path: string): string | null {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  const lang = EXT_LANG[ext] ?? ext;
-  return resolveLang(lang);
-}
-
-function isMarkdownPath(path: string): boolean {
-  return /\.(?:md|markdown)$/i.test(path);
-}
-
-function formatSize(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function useThemeMode(): "light" | "dark" {
-  return useSyncExternalStore(
-    (notify) => {
-      const observer = new MutationObserver(notify);
-      observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["data-theme"],
-      });
-      return () => observer.disconnect();
-    },
-    () => (document.documentElement.dataset.theme === "light" ? "light" : "dark"),
-  );
-}
-
-function HighlightedText({ path, content }: { path: string; content: string }) {
-  const mode = useThemeMode();
-  const highlightVersion = useSyncExternalStore(
-    subscribeHighlighter,
-    getHighlightVersion,
-  );
-  const lang = langForPath(path);
-  const lines = useMemo(() => content.split("\n"), [content]);
-  const capped = lines.length > VIEWER_LINE_CAP;
-  const visible = useMemo(
-    () => (capped ? lines.slice(0, VIEWER_LINE_CAP).join("\n") : content),
-    [capped, lines, content],
-  );
-
-  const tokens = useMemo<LineCache | null>(() => {
-    void highlightVersion;
-    if (!lang) return null;
-    ensureLang(lang);
-    return tokenizeIncremental(null, visible, lang, themeForMode(mode));
-  }, [lang, visible, mode, highlightVersion]);
-
-  return (
-    <pre className="file-viewer-code">
-      {tokens
-        ? tokens.tokens.map((row, i) => (
-            <div className="file-viewer-line" key={i}>
-              {row.length === 0
-                ? "\n"
-                : row.map((token, j) => (
-                    <span key={j} style={{ color: token.color }}>
-                      {token.content}
-                    </span>
-                  ))}
-            </div>
-          ))
-        : visible.split("\n").map((line, i) => (
-            <div className="file-viewer-line" key={i}>
-              {line || "\n"}
-            </div>
-          ))}
-      {capped && <div className="file-viewer-cap">…</div>}
-    </pre>
-  );
-}
 
 type DirState = { entries: FsEntry[]; error?: boolean };
 
-// Module-level so a chat preview request fires once, not again on every
-// files-tab remount (the tab unmounts when another tool is selected).
-let handledFileRequestSeq = 0;
+const FILE_TAB_PREFIX = "file:";
 
-export function FilesTab({
-  /**
-   * The topbar browser entry always starts on the tree. A preview request
-   * retained for the session must stay unconsumed so the path-keyed file tab
-   * can still honor it when that tab is activated.
-   */
-  ignoreFileRequest = false,
-}: {
-  ignoreFileRequest?: boolean;
-}) {
+/**
+ * The workspace folder tree.
+ *
+ * This tab never renders file contents: clicking a file opens (or focuses) a
+ * `file:<path>` tab beside it, the way an editor opens a document. The tree is
+ * therefore a pure navigator, and the panel keeps it mounted while another tab
+ * is active so folder expansion and scroll position survive a detour into a
+ * file.
+ */
+export function FilesTab() {
   const { t } = useTranslation();
   const workspace = useAppStore((s) => s.workspace);
-  const fileRequest = useAppStore((s) => s.workPanelFileRequest);
+  const activeTabId = useAppStore((s) => s.activeWorkPanelTabId);
+  const openFileInWorkPanel = useAppStore((s) => s.openFileInWorkPanel);
   const root = workspace?.path ?? null;
+  const selected =
+    activeTabId?.startsWith(FILE_TAB_PREFIX)
+      ? activeTabId.slice(FILE_TAB_PREFIX.length)
+      : null;
 
   const [dirs, setDirs] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selected, setSelected] = useState<string | null>(null);
-  const [file, setFile] = useState<FsReadResult | null>(null);
-  const [fileError, setFileError] = useState(false);
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
   // an actual root change: an unconditional [root] effect also runs on the
-  // StrictMode remount, wiping the selection a chat file request just made
-  // (first click landed on the tree instead of the file).
+  // StrictMode remount, wiping a tree the user had already opened.
   const prevRoot = useRef(root);
   useEffect(() => {
     if (prevRoot.current === root) return;
     prevRoot.current = root;
     setDirs({});
     setExpanded(new Set());
-    setSelected(null);
-    setFile(null);
-    setFileError(false);
   }, [root]);
 
   const loadDir = useCallback(
@@ -213,45 +77,6 @@ export function FilesTab({
     },
     [dirs, loadDir],
   );
-
-  const openFile = useCallback(async (rel: string, mimeType?: string) => {
-    setSelected(rel);
-    setFile(null);
-    setFileError(false);
-    try {
-      setFile(await api.fsRead(rel, mimeType));
-    } catch {
-      setFileError(true);
-    }
-  }, []);
-
-  // Chat-initiated previews: open the file and expand its ancestor folders
-  // so "back" lands on a tree that reveals it. Attachment blobs and absolute
-  // scratch paths live outside the workspace tree.
-  useEffect(() => {
-    if (ignoreFileRequest) return;
-    if (!fileRequest || !root) return;
-    if (fileRequest.seq === handledFileRequestSeq) return;
-    handledFileRequestSeq = fileRequest.seq;
-    const path = fileRequest.path;
-    const isExternal =
-      path.startsWith("attachments/") ||
-      path.startsWith("/") ||
-      /^[A-Za-z]:[\\/]/.test(path) ||
-      path.startsWith("\\\\");
-    if (!isExternal) {
-      const parts = path.split("/").slice(0, -1);
-      const ancestors: string[] = [];
-      let acc = "";
-      for (const part of parts) {
-        acc = acc ? `${acc}/${part}` : part;
-        ancestors.push(acc);
-      }
-      setExpanded((prev) => new Set([...prev, ...ancestors]));
-      for (const dir of ancestors) void loadDir(dir);
-    }
-    void openFile(path, fileRequest.mimeType);
-  }, [ignoreFileRequest, fileRequest, root, loadDir, openFile]);
 
   const renderDir = (rel: string, depth: number): React.ReactNode => {
     const state = dirs[rel];
@@ -305,7 +130,7 @@ export function FilesTab({
           type="button"
           className={cx("file-tree-row", selected === childRel && "active")}
           style={{ paddingLeft: 12 + depth * 14 + 16 }}
-          onClick={() => void openFile(childRel)}
+          onClick={() => openFileInWorkPanel(childRel)}
           title={childRel}
         >
           <IconFileText size={14} />
@@ -322,66 +147,6 @@ export function FilesTab({
         title={t("panel.files.noWorkspace")}
         body={t("panel.files.noWorkspaceHint")}
       />
-    );
-  }
-
-  if (selected !== null) {
-    return (
-      <div className="file-viewer">
-        <div className="file-viewer-header">
-          <TooltipButton
-            type="button"
-            className="icon-btn"
-            tooltip={t("panel.files.back")}
-            ariaLabel={t("panel.files.back")}
-            onClick={() => {
-              setSelected(null);
-              setFile(null);
-            }}
-          >
-            <IconChevronLeft size={14} />
-          </TooltipButton>
-          <span className="file-viewer-path" title={selected}>
-            {selected}
-          </span>
-          {file && <span className="file-viewer-size">{formatSize(file.size)}</span>}
-          <TooltipButton
-            type="button"
-            className="icon-btn"
-            tooltip={t("panel.files.reveal")}
-            ariaLabel={t("panel.files.reveal")}
-            onClick={() => void api.fsReveal(selected)}
-          >
-            <IconExternal size={14} />
-          </TooltipButton>
-        </div>
-        <div className="file-viewer-body">
-          {fileError ? (
-            <WorkTabEmpty icon={IconFileText} title={t("panel.files.error")} />
-          ) : !file ? (
-            <div className="file-tree-note">{t("panel.files.loading")}</div>
-          ) : file.kind === "text" && isMarkdownPath(selected) ? (
-            <div className="file-viewer-markdown prose-chat">
-              <Markdown source={file.content ?? ""} baseDir={fileDirOf(selected)} />
-            </div>
-          ) : file.kind === "text" ? (
-            <HighlightedText path={selected} content={file.content ?? ""} />
-          ) : file.kind === "image" ? (
-            <div className="file-viewer-image">
-              <img src={file.dataUrl} alt={selected} />
-            </div>
-          ) : (
-            <WorkTabEmpty
-              icon={IconFileText}
-              title={
-                file.kind === "tooLarge"
-                  ? t("panel.files.tooLarge")
-                  : t("panel.files.binary")
-              }
-            />
-          )}
-        </div>
-      </div>
     );
   }
 

@@ -22,7 +22,6 @@ export type WorkPanelTabsState = {
 
 export type WorkPanelContext = WorkPanelTabsState & {
   open: boolean;
-  fileRequest: { path: string; seq: number; mimeType?: string } | null;
 };
 
 export type ReviewArtifactEvent = {
@@ -34,7 +33,7 @@ export type ReviewArtifactEvent = {
 let newWorkPanelTabSequence = 0;
 
 export function emptyWorkPanelContext(): WorkPanelContext {
-  return { open: false, tabs: [], activeTabId: null, fileRequest: null };
+  return { open: false, tabs: [], activeTabId: null };
 }
 
 export function switchWorkPanelContextState(
